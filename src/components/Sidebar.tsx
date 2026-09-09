@@ -1,0 +1,105 @@
+import type { ReactNode } from "react";
+import type { Health, WhoAmI } from "../types";
+import {
+  IconChat,
+  IconDashboard,
+  IconLedger,
+  IconPlaybook,
+  IconSettings,
+} from "./Icons";
+
+export type View = "dashboard" | "chat" | "playbook" | "ledger" | "settings";
+
+const NAV: { view: View; label: string; icon: ReactNode }[] = [
+  { view: "dashboard", label: "Overview", icon: <IconDashboard /> },
+  { view: "chat", label: "Ask Milo", icon: <IconChat /> },
+  { view: "playbook", label: "What he can do", icon: <IconPlaybook /> },
+  { view: "ledger", label: "Request log", icon: <IconLedger /> },
+  { view: "settings", label: "Connection", icon: <IconSettings /> },
+];
+
+export function Sidebar({
+  view,
+  onChange,
+  who,
+  health,
+  todayCount,
+}: {
+  view: View;
+  onChange: (view: View) => void;
+  who: WhoAmI | null;
+  health: Health | null;
+  todayCount: number;
+}) {
+  return (
+    <aside className="flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90">
+      <div className="px-6 pb-6 pt-7">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-champagne font-display text-lg font-semibold text-ink-900">
+            M
+          </span>
+          <div>
+            <p className="font-display text-[17px] font-semibold leading-none text-champagne">
+              Milo
+            </p>
+            <p className="mt-1 text-[11px] tracking-wide text-champagne/55">
+              Sigal Insurance Agency
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
+        {NAV.map((item) => {
+          const active = view === item.view;
+          return (
+            <button
+              key={item.view}
+              onClick={() => onChange(item.view)}
+              aria-current={active ? "page" : undefined}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-champagne text-ink-900"
+                  : "text-champagne/70 hover:bg-white/8 hover:text-champagne"
+              }`}
+            >
+              <span className={active ? "text-ink-700" : "text-champagne/60"}>{item.icon}</span>
+              {item.label}
+              {item.view === "ledger" && todayCount > 0 && (
+                <span
+                  className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    active ? "bg-ink-900/10 text-ink-900" : "bg-white/12 text-champagne/80"
+                  }`}
+                >
+                  {todayCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="shrink-0 space-y-3 border-t border-white/10 px-5 py-5 text-[11px]">
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full ${health ? "bg-ink-300" : "bg-[#e0a56b]"}`}
+            aria-hidden
+          />
+          <span className="text-champagne/70">
+            {health ? `Connected · ${health.environment}` : "Not connected"}
+          </span>
+        </div>
+        {health?.all_integrations_mocked && (
+          <p className="rounded-lg bg-white/8 px-2.5 py-2 leading-relaxed text-champagne/70">
+            Every integration is mocked — results are sample data, not the real CRM.
+          </p>
+        )}
+        {who && (
+          <p className="text-champagne/50">
+            {who.display_name} · {who.role}
+          </p>
+        )}
+      </div>
+    </aside>
+  );
+}

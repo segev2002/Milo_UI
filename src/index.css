@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+
+  --color-ink-950: #032b20;
+  --color-ink-900: #064e3b;
+  --color-ink-800: #085c46;
+  --color-ink-700: #0a6b51;
+  --color-ink-600: #0f7d5f;
+  --color-ink-500: #12876a;
+  --color-ink-300: #7fbcaa;
+  --color-ink-100: #dcede6;
+  --color-ink-50: #eff7f3;
+
+  --color-champagne: #f8e7c9;
+  --color-champagne-soft: #fcf4e6;
+  --color-champagne-deep: #e8cfa4;
+
+  --color-paper: #fbf8f2;
+  --color-line: #e7decd;
+  --color-body: #12261f;
+  --color-muted: #5e6f68;
+
+  --color-attention: #b4761b;
+  --color-blocked: #a32e22;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-champagne-deep) transparent;
+  }
+}
+
+@utility card {
+  background-color: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+}
+
+.fade-in {
+  animation: fade-in 0.28s ease-out both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.typing-dot {
+  animation: typing 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
