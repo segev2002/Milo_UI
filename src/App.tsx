@@ -1,25 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
-import { health as fetchHealth, session, whoami } from "./lib/api";
+import { SIGNED_OUT_EVENT, health as fetchHealth, session, whoami } from "./lib/api";
 import { useActivity } from "./hooks/useActivity";
 import { useMilo } from "./hooks/useMilo";
 import type { Health, TurnRequest, WhoAmI } from "./types";
 import { Chat } from "./components/Chat";
 import { Dashboard } from "./components/Dashboard";
 import { Ledger } from "./components/Ledger";
+import { Login } from "./components/Login";
 import { Playbook } from "./components/Playbook";
 import { Settings } from "./components/Settings";
 import { Sidebar } from "./components/Sidebar";
 import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string; hint: string }> = {
-  dashboard: { title: "Overview", hint: "What Milo has been handling" },
-  chat: { title: "Ask Milo", hint: "He has the book, the systems and the diary" },
-  playbook: { title: "What he can do", hint: "The spec's scenarios, on demand" },
-  ledger: { title: "Request log", hint: "Every turn this console has sent" },
-  settings: { title: "Connection", hint: "Token, environment and local data" },
+  dashboard: { title: "סקירה", hint: "במה מילו טיפל" },
+  chat: { title: "שאל את מילו", hint: "יש לו את התיקים, המערכות והיומן" },
+  playbook: { title: "מה הוא יודע לעשות", hint: "התרחישים מהמפרט, לפי דרישה" },
+  ledger: { title: "יומן בקשות", hint: "כל פנייה שהקונסולה הזו שלחה" },
+  settings: { title: "חיבור", hint: "טוקן, סביבה ונתונים מקומיים" },
 };
 
 export default function App() {
+  /** Nothing in the console is reachable without a token — sign-in is the first
+      page, and a 401 anywhere drops straight back to it. */
+  const [signedIn, setSignedIn] = useState(session.signedIn);
   const [view, setView] = useState<View>("dashboard");
   const [mode, setMode] = useState(session.mode);
   const [who, setWho] = useState<WhoAmI | null>(null);
@@ -45,8 +49,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (signedIn) void refresh();
+  }, [refresh, signedIn]);
+
+  /** A rejected token signs the browser out wherever it happened. */
+  useEffect(() => {
+    const onSignedOut = () => setSignedIn(false);
+    window.addEventListener(SIGNED_OUT_EVENT, onSignedOut);
+    return () => window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut);
+  }, []);
+
+  const signOut = () => {
+    reset();
+    session.signOut();
+    setSignedIn(false);
+    setWho(null);
+    setView("dashboard");
+  };
+
+  if (!signedIn) {
+    return (
+      <Login
+        onSignedIn={() => {
+          setSignedIn(true);
+          setView("dashboard");
+          void refresh();
+        }}
+      />
+    );
+  }
 
   /** Switching between the live API and sample data restarts the thread:
       a half-real conversation would be worse than none. */
@@ -72,6 +103,7 @@ export default function App() {
         who={who}
         health={health}
         todayCount={metrics.today}
+        onSignOut={signOut}
       />
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -83,7 +115,7 @@ export default function App() {
             <p className="mt-2 text-sm text-muted">{head.hint}</p>
           </div>
           <p className="text-sm text-muted">
-            {new Date().toLocaleDateString(undefined, {
+            {new Date().toLocaleDateString("he-IL", {
               weekday: "long",
               day: "numeric",
               month: "long",
@@ -95,15 +127,15 @@ export default function App() {
           <div className="mx-8 mb-4 shrink-0 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-sm text-blocked">
             {connectionError}{" "}
             <button onClick={() => setView("settings")} className="underline">
-              Check the connection
+              בדקו את החיבור
             </button>
           </div>
         )}
 
         {mode === "demo" && (
           <div className="mx-8 mb-4 shrink-0 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-sm text-[#7a5a1a]">
-            Sample data — nothing here comes from Milo. Add a token under Connection to point the
-            console at the API.
+            נתוני דוגמה — שום דבר כאן לא בא ממילו. הוסיפו טוקן במסך "חיבור" כדי לחבר את
+            הקונסולה ל-API.
           </div>
         )}
 

@@ -114,7 +114,7 @@ export function computeMetrics(entries: ActivityEntry[], days = 14): Metrics {
       .sort((a, b) => b.count - a.count),
     byDay: [...perDay.entries()].map(([day, count]) => ({
       day,
-      label: new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+      label: new Date(`${day}T12:00:00`).toLocaleDateString("he-IL", {
         day: "numeric",
         month: "short",
       }),

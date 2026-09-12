@@ -43,6 +43,14 @@ const STATUS_STYLE: Record<ReportStatus | "error", string> = {
   error: "bg-[#fbeceb] text-blocked border-[#f3d3d0]",
 };
 
+const STATUS_TEXT: Record<ReportStatus | "error", string> = {
+  ok: "תקין",
+  attention: "לתשומת לב",
+  blocked: "חסום",
+  empty: "ריק",
+  error: "שגיאה",
+};
+
 const STATUS_MARK: Record<ReportStatus | "error", string> = {
   ok: "✅",
   attention: "⚠️",
@@ -63,7 +71,7 @@ export function StatusPill({
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${STATUS_STYLE[status]}`}
     >
       <span aria-hidden>{STATUS_MARK[status]}</span>
-      {children ?? status}
+      {children ?? STATUS_TEXT[status]}
     </span>
   );
 }

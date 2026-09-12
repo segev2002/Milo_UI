@@ -28,27 +28,27 @@ export function Dashboard({
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Handled today" value={metrics.today} hint="requests Milo answered" />
-        <Stat label="Last 7 days" value={metrics.week} hint="rolling window" />
+        <Stat label="טופלו היום" value={metrics.today} hint="בקשות שמילו ענה עליהן" />
+        <Stat label="7 הימים האחרונים" value={metrics.week} hint="חלון מתגלגל" />
         <Stat
-          label="Needs you"
+          label="דורש אותך"
           value={metrics.needsSigal}
-          hint="waiting on a signature, a person or missing data"
+          hint="ממתין לחתימה, לאדם או לנתון חסר"
           tone={metrics.needsSigal > 0 ? "warm" : "plain"}
         />
         <Stat
-          label="Median reply"
+          label="זמן תגובה חציוני"
           value={hasData ? `${(metrics.medianMs / 1000).toFixed(1)}s` : "—"}
-          hint={hasData ? `${Math.round(metrics.successRate * 100)}% answered cleanly` : "no data yet"}
+          hint={hasData ? `${Math.round(metrics.successRate * 100)}% נענו ללא תקלה` : "אין נתונים עדיין"}
         />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
         <Card className="flex flex-col">
           <CardHead
-            title="Request volume"
-            hint="Last 14 days, from this console"
-            right={<Tag tone="ink">{metrics.total} total</Tag>}
+            title="נפח בקשות"
+            hint="14 הימים האחרונים, מהקונסולה הזו"
+            right={<Tag tone="ink">{metrics.total} בסך הכול</Tag>}
           />
           <div className="flex min-h-[260px] flex-1 items-stretch px-2 py-4">
             {hasData ? (
@@ -84,7 +84,7 @@ export function Dashboard({
                     }}
                     labelStyle={{ color: "#064E3B", fontWeight: 600 }}
                     separator=""
-                    formatter={(value: number) => [`${value} requests`, ""]}
+                    formatter={(value: number) => [`${value} בקשות`, ""]}
                   />
                   <Area
                     type="monotone"
@@ -99,15 +99,15 @@ export function Dashboard({
               </ResponsiveContainer>
             ) : (
               <Empty
-                title="Nothing tracked yet"
-                hint="Every question you put to Milo from this console is counted here."
+                title="עוד לא נרשם דבר"
+                hint="כל שאלה שאתם שואלים את מילו מהקונסולה הזו נספרת כאן."
               />
             )}
           </div>
         </Card>
 
         <Card>
-          <CardHead title="What he worked on" hint="Grouped by the intent he routed to" />
+          <CardHead title="במה הוא עסק" hint="מקובץ לפי הכוונה שאליה ניתב" />
           {hasData ? (
             <ul className="space-y-3 px-5 py-4">
               {metrics.byIntent.slice(0, 8).map((row) => {
@@ -133,21 +133,21 @@ export function Dashboard({
               })}
             </ul>
           ) : (
-            <Empty title="No routed intents yet" />
+            <Empty title="עוד לא נותבו כוונות" />
           )}
         </Card>
       </div>
 
       <Card>
         <CardHead
-          title="Recent requests"
-          hint="Newest first"
+          title="בקשות אחרונות"
+          hint="החדשות ראשונות"
           right={
             <button
               onClick={() => onNavigate("ledger")}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-700 hover:text-ink-900"
             >
-              Full log <IconArrow className="h-3.5 w-3.5" />
+              היומן המלא <IconArrow className="h-3.5 w-3.5 rotate-180" />
             </button>
           }
         />
@@ -172,15 +172,14 @@ export function Dashboard({
             ))}
           </ul>
         ) : (
-          <Empty title="No requests yet" hint="Ask Milo something to start the log." />
+          <Empty title="אין בקשות עדיין" hint="שאלו את מילו משהו כדי להתחיל את היומן." />
         )}
       </Card>
 
       <p className="px-1 pb-2 text-xs leading-relaxed text-muted">
-        These counts cover the requests made from this console. Milo also answers over WhatsApp and
-        runs his scheduled jobs (07:00 digest, birthdays, the weekly sweeps) — that volume lives in
-        his own tables and is not exposed by any read endpoint yet, so it is deliberately not counted
-        here rather than guessed at.
+        המספרים האלה מתייחסים לבקשות שנעשו מהקונסולה הזו. מילו עונה גם בוואטסאפ ומריץ את
+        העבודות המתוזמנות שלו (סיכום 07:00, ימי הולדת, הסריקות השבועיות) — הנפח הזה נמצא בטבלאות
+        שלו ואינו נחשף עדיין באף נקודת קצה לקריאה, ולכן הוא במכוון לא נספר כאן במקום להיות מנוחש.
       </p>
     </div>
   );
@@ -215,8 +214,8 @@ function Stat({
 export function when(iso: string): string {
   const then = new Date(iso);
   const diff = Date.now() - then.getTime();
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (diff < 60_000) return "כרגע";
+  if (diff < 3_600_000) return `לפני ${Math.floor(diff / 60_000)} דק'`;
+  if (diff < 86_400_000) return `לפני ${Math.floor(diff / 3_600_000)} שע'`;
+  return then.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
 }

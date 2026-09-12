@@ -27,24 +27,24 @@ export function Ledger({ entries }: { entries: ActivityEntry[] }) {
   return (
     <Card>
       <CardHead
-        title="Request log"
-        hint={`${rows.length} of ${entries.length} requests`}
+        title="יומן בקשות"
+        hint={`${rows.length} מתוך ${entries.length} בקשות`}
         right={
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => exportCsv(rows)} disabled={!rows.length}>
-              Export CSV
+              ייצוא CSV
             </Button>
             <Button
               size="sm"
               variant="danger"
               onClick={() => {
-                if (confirm("Clear the local request log? Milo's own records are untouched.")) {
+                if (confirm("לנקות את יומן הבקשות המקומי? הרשומות של מילו עצמו לא ייפגעו.")) {
                   activityStore.clear();
                 }
               }}
               disabled={!entries.length}
             >
-              Clear
+              נקה
             </Button>
           </div>
         }
@@ -61,15 +61,15 @@ export function Ledger({ entries }: { entries: ActivityEntry[] }) {
                 : "border-line bg-white text-body hover:border-ink-300"
             }`}
           >
-            {{ all: "Everything", needs: "Needs Sigal", failed: "Failed" }[option]}
+            {{ all: "הכול", needs: "דורש את סיגל", failed: "נכשלו" }[option]}
           </button>
         ))}
         <select
           value={intent}
           onChange={(event) => setIntent(event.target.value)}
-          className="ml-auto rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body focus:border-ink-500 focus:outline-none"
+          className="ms-auto rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body focus:border-ink-500 focus:outline-none"
         >
-          <option value="all">All intents</option>
+          <option value="all">כל הכוונות</option>
           {intents.map((value) => (
             <option key={value} value={value}>
               {intentLabel(value)}
@@ -82,13 +82,13 @@ export function Ledger({ entries }: { entries: ActivityEntry[] }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b border-line text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-                <th className="px-5 py-2.5 font-semibold">When</th>
-                <th className="px-3 py-2.5 font-semibold">Asked</th>
-                <th className="px-3 py-2.5 font-semibold">Routed to</th>
-                <th className="px-3 py-2.5 font-semibold">Result</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Took</th>
-                <th className="px-5 py-2.5 font-semibold">Flags</th>
+              <tr className="border-b border-line text-start text-[11px] uppercase tracking-[0.06em] text-muted">
+                <th className="px-5 py-2.5 font-semibold">מתי</th>
+                <th className="px-3 py-2.5 font-semibold">מה נשאל</th>
+                <th className="px-3 py-2.5 font-semibold">נותב אל</th>
+                <th className="px-3 py-2.5 font-semibold">תוצאה</th>
+                <th className="px-3 py-2.5 text-end font-semibold">לקח</th>
+                <th className="px-5 py-2.5 font-semibold">סימונים</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -111,21 +111,21 @@ export function Ledger({ entries }: { entries: ActivityEntry[] }) {
                       entry.reportStatus ? (
                         <StatusPill status={entry.reportStatus} />
                       ) : (
-                        <span className="text-xs text-muted">answered</span>
+                        <span className="text-xs text-muted">נענה</span>
                       )
                     ) : (
-                      <StatusPill status="error">failed</StatusPill>
+                      <StatusPill status="error">נכשל</StatusPill>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right text-xs tabular-nums text-muted">
+                  <td className="whitespace-nowrap px-3 py-3 text-end text-xs tabular-nums text-muted">
                     {(entry.durationMs / 1000).toFixed(1)}s
                   </td>
                   <td className="px-5 py-3 text-xs text-muted">
                     {[
-                      entry.missingCount && `${entry.missingCount} missing`,
-                      entry.awaitingCount && `${entry.awaitingCount} waiting`,
-                      entry.withheldCount && `${entry.withheldCount} withheld`,
-                      entry.source === "scenario" && "run from playbook",
+                      entry.missingCount && `${entry.missingCount} חסרים`,
+                      entry.awaitingCount && `${entry.awaitingCount} ממתינים`,
+                      entry.withheldCount && `${entry.withheldCount} הוסתרו`,
+                      entry.source === "scenario" && "הורץ מהתרחישים",
                     ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
@@ -137,8 +137,8 @@ export function Ledger({ entries }: { entries: ActivityEntry[] }) {
         </div>
       ) : (
         <Empty
-          title="Nothing matches"
-          hint={entries.length ? "Try a different filter." : "Ask Milo something first."}
+          title="אין התאמות"
+          hint={entries.length ? "נסו סינון אחר." : "שאלו קודם את מילו משהו."}
         />
       )}
     </Card>

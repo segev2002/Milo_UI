@@ -11,7 +11,7 @@ export async function mockWhoAmI(): Promise<WhoAmI> {
   await wait(120);
   return {
     subject: "demo:sigal",
-    display_name: "Sigal (demo)",
+    display_name: "סיגל (דוגמה)",
     role: "agent",
     max_sensitivity: "high",
     client_crm_id: null,
@@ -40,20 +40,21 @@ export async function mockTurn(body: TurnRequest): Promise<TurnResponse> {
 }
 
 function classify(text: string): Intent {
-  if (/(birthday|יום הולדת)/.test(text)) return "birthdays";
-  if (/(missing|gap|no pension)/.test(text)) return "missing_products";
-  if (/(discount|expensive|cheaper)/.test(text)) return "discount_check";
-  if (/(document|reimburs|surgery|refund)/.test(text)) return "reimbursement_documents";
-  if (/(tax|certificate)/.test(text)) return "tax_certificates";
-  if (/(quiet|inactive|dormant)/.test(text)) return "inactive_clients";
-  if (/(task|list|today|digest)/.test(text)) return "daily_digest";
-  if (/(sign|re-?verify|reverify|file check)/.test(text)) return "process_status";
-  if (/(book|meeting|appointment)/.test(text)) return "appointment_booking";
-  if (/(what does|what do .* have|overview)/.test(text)) return "client_overview";
+  if (/(יום הולדת|ימי הולדת|birthday)/.test(text)) return "birthdays";
+  if (/(חסר|חסרים|פער|missing)/.test(text)) return "missing_products";
+  if (/(הנחה|הנחות|יקר|discount)/.test(text)) return "discount_check";
+  if (/(מסמכים|החזר|תביעה|ניתוח|document|reimburs)/.test(text)) return "reimbursement_documents";
+  if (/(אישור מס|אישורי מס|tax)/.test(text)) return "tax_certificates";
+  if (/(לא פעיל|רדומים|נעלם|inactive)/.test(text)) return "inactive_clients";
+  if (/(משימות|היום|סדר יום|task)/.test(text)) return "daily_digest";
+  if (/(חתם|חתמה|בדיקת תיק|sign)/.test(text)) return "process_status";
+  if (/(פגישה|לקבוע|תור|book|meeting)/.test(text)) return "appointment_booking";
+  if (/(מה יש ל|סקירה|overview)/.test(text)) return "client_overview";
   return "unknown";
 }
 
-function response(report: Report, extra: Partial<TurnResponse> = {}): TurnResponse {
+function response(input: Report, extra: Partial<TurnResponse> = {}): TurnResponse {
+  const report = label(input);
   return {
     reply: renderMarkdown(report),
     intent: extra.intent ?? null,
@@ -70,44 +71,44 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   daily_digest: () =>
     response(
       {
-        title: "Your tasks — Tuesday",
+        title: "המשימות שלך — יום שלישי",
         status: "attention",
-        summary: "4 open tasks. Two are waiting on someone else, not on you.",
+        summary: "4 משימות פתוחות. שתיים ממתינות למישהו אחר, לא לך.",
         sections: [
           {
-            title: "In priority order",
+            title: "לפי סדר עדיפות",
             lines: [],
             table: {
-              headers: ["Task", "Client", "Why here"],
+              headers: ["משימה", "לקוח", "מדוע כאן"],
               rows: [
-                ["Signature outstanding", "Israel Ben-Ami", "Blocks the Har HaBituach pull — 6 days old"],
-                ["Life policy 3-year mark", "Dana Cohen", "Milestone reached yesterday"],
-                ["Discount recheck", "Moshe Levi", "Two insurers returned 'unknown' last week"],
-                ["Missing provident fund", "Rina Azulai", "Gap flagged in the weekly sweep"],
+                ["חתימה חסרה", "ישראל בן-עמי", "חוסם את השליפה מהר הביטוח — 6 ימים"],
+                ["ביטוח חיים 3 שנים", "דנה כהן", "אבן הדרך הושגה אתמול"],
+                ["בדיקת הנחות חוזרת", "משה לוי", "שני מבטחים החזירו 'לא ידוע' בשבוע שעבר"],
+                ["חסרה קופת גמל", "רינה אזולאי", "הפער סומן בסריקה השבועית"],
               ],
               caption: null,
             },
           },
         ],
         missing_information: [],
-        awaiting: ["Israel Ben-Ami's signature", "Migdal's discount desk"],
-        footnotes: ["Priority weights are still SCH-1 — provisional."],
+        awaiting: ["החתימה של ישראל בן-עמי", "דלפק ההנחות של מגדל"],
+        footnotes: ["משקלי העדיפות הם עדיין SCH-1 — זמניים."],
       },
       { intent: "daily_digest" },
     ),
   birthdays: () =>
     response(
       {
-        title: "Birthdays today",
+        title: "ימי הולדת היום",
         status: "ok",
-        summary: "One client has a birthday today.",
+        summary: "ללקוח אחד יש יום הולדת היום.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Client", "Turns", "Phone"],
-              rows: [["Rina Azulai", "54", "052-000-0000"]],
+              headers: ["לקוח", "גיל", "טלפון"],
+              rows: [["רינה אזולאי", "54", "052-000-0000"]],
               caption: null,
             },
           },
@@ -121,25 +122,25 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   missing_products: () =>
     response(
       {
-        title: "Clients missing core products",
+        title: "לקוחות שחסרים להם מוצרי ליבה",
         status: "attention",
-        summary: "3 of 12 active clients have a gap in pension, provident fund or savings.",
+        summary: "ל-3 מתוך 12 לקוחות פעילים יש פער בפנסיה, קופת גמל או חיסכון.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Client", "Missing", "Last spoke"],
+              headers: ["לקוח", "חסר", "שיחה אחרונה"],
               rows: [
-                ["Rina Azulai", "Provident fund", "4 months ago"],
-                ["Yossi Mizrahi", "Savings plan", "11 months ago"],
-                ["Tal Barak", "Pension, savings plan", "2 months ago"],
+                ["רינה אזולאי", "קופת גמל", "לפני 4 חודשים"],
+                ["יוסי מזרחי", "תוכנית חיסכון", "לפני 11 חודשים"],
+                ["טל ברק", "פנסיה, תוכנית חיסכון", "לפני חודשיים"],
               ],
               caption: null,
             },
           },
         ],
-        missing_information: ["Tal Barak has no date of birth on file"],
+        missing_information: ["לטל ברק אין תאריך לידה בתיק"],
         awaiting: [],
         footnotes: [],
       },
@@ -148,27 +149,27 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   discount_check: () =>
     response(
       {
-        title: "Discount check — Moshe Levi",
+        title: "בדיקת הנחות — משה לוי",
         status: "attention",
-        summary: "4 active policies checked. One discount available, two insurers could not be reached.",
+        summary: "4 פוליסות פעילות נבדקו. הנחה אחת זמינה, לשני מבטחים לא ניתן היה להגיע.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Policy", "Insurer", "Result"],
+              headers: ["פוליסה", "מבטח", "תוצאה"],
               rows: [
-                ["Life cover", "Harel", "8% available on annual payment"],
-                ["Health", "Clal", "No discount"],
-                ["Pension", "Migdal", "Could not find out — portal timed out"],
-                ["Disability", "Menora Mivtachim", "Could not find out — no credentials"],
+                ["ביטוח חיים", "הראל", "8% זמין בתשלום שנתי"],
+                ["בריאות", "כלל", "אין הנחה"],
+                ["פנסיה", "מגדל", "לא הצלחתי לברר — הפורטל לא הגיב"],
+                ["אובדן כושר עבודה", "מנורה מבטחים", "לא הצלחתי לברר — אין הרשאות"],
               ],
-              caption: "'No discount' and 'could not find out' are different answers.",
+              caption: "'אין הנחה' ו'לא הצלחתי לברר' הן תשובות שונות.",
             },
           },
         ],
         missing_information: [],
-        awaiting: ["Migdal portal", "Menora credentials"],
+        awaiting: ["הפורטל של מגדל", "הרשאות מנורה"],
         footnotes: [],
       },
       { intent: "discount_check" },
@@ -176,18 +177,18 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   reimbursement_documents: () =>
     response(
       {
-        title: "Documents for a surgery reimbursement",
+        title: "מסמכים להחזר על ניתוח",
         status: "ok",
-        summary: "Five documents. Anything not on this list is not needed.",
+        summary: "חמישה מסמכים. כל מה שלא ברשימה הזו אינו נדרש.",
         sections: [
           {
-            title: "Required",
+            title: "נדרש",
             lines: [
-              "Surgery report from the treating hospital",
-              "Original receipts for every amount claimed",
-              "Referral from the treating physician",
-              "Discharge summary",
-              "Bank account confirmation in the client's name",
+              "דוח ניתוח מבית החולים המטפל",
+              "קבלות מקוריות על כל סכום שנתבע",
+              "הפניה מהרופא המטפל",
+              "סיכום שחרור",
+              "אישור ניהול חשבון בנק על שם הלקוח",
             ],
             table: null,
           },
@@ -201,18 +202,18 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   inactive_clients: () =>
     response(
       {
-        title: "Inactive clients",
+        title: "לקוחות לא פעילים",
         status: "attention",
-        summary: "Counted on two axes independently: no conversation, and no action.",
+        summary: "נמדד בשני צירים בנפרד: ללא שיחה, וללא פעולה.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Client", "No conversation since", "No action since"],
+              headers: ["לקוח", "ללא שיחה מאז", "ללא פעולה מאז"],
               rows: [
-                ["Yossi Mizrahi", "26 months", "13 months"],
-                ["Nurit Shalev", "9 months", "31 months"],
+                ["יוסי מזרחי", "26 חודשים", "13 חודשים"],
+                ["נורית שלו", "9 חודשים", "31 חודשים"],
               ],
               caption: null,
             },
@@ -227,50 +228,50 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   tax_certificates: () =>
     response(
       {
-        title: "Tax certificates — Moshe Levi",
+        title: "אישורי מס — משה לוי",
         status: "attention",
-        summary: "3 of 4 produced. One failed, with the reason.",
+        summary: "3 מתוך 4 הופקו. אחד נכשל, עם הסיבה.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Product", "Managing body", "Result"],
+              headers: ["מוצר", "גוף מנהל", "תוצאה"],
               rows: [
-                ["Pension fund", "Migdal", "Produced"],
-                ["Provident fund", "Altshuler Shaham", "Produced"],
-                ["Study fund", "Altshuler Shaham", "Produced"],
-                ["Executive insurance", "The Phoenix", "Not produced — 2025 not published yet"],
+                ["קרן פנסיה", "מגדל", "הופק"],
+                ["קופת גמל", "אלטשולר שחם", "הופק"],
+                ["קרן השתלמות", "אלטשולר שחם", "הופק"],
+                ["ביטוח מנהלים", "הפניקס", "לא הופק — 2025 עוד לא פורסם"],
               ],
               caption: null,
             },
           },
         ],
         missing_information: [],
-        awaiting: ["The Phoenix — 2025 certificates"],
-        footnotes: ["Certificates for the previous year are generally available from February."],
+        awaiting: ["הפניקס — אישורי 2025"],
+        footnotes: ["אישורים לשנה הקודמת זמינים בדרך כלל מפברואר."],
       },
       { intent: "tax_certificates" },
     ),
   process_status: () =>
     response(
       {
-        title: "File re-verification — Israel Ben-Ami",
+        title: "בדיקת תיק ביטוחי — ישראל בן-עמי",
         status: "blocked",
-        summary: "Stopped at step B. Both ID photos are in; the form is filled and unsigned.",
+        summary: "נעצר בשלב ב'. שני צילומי התעודה התקבלו; הטופס מלא ולא חתום.",
         sections: [
           {
-            title: "Where it has got to",
+            title: "היכן זה עומד",
             lines: [
-              "Step A — ID photos collected (both sides) ✓",
-              "Step B — PoliVision form filled, awaiting signature",
-              "Step C — Har HaBituach + Maslaka pull (not started)",
+              "שלב א' — צילומי תעודת זהות נאספו (שני הצדדים) ✓",
+              "שלב ב' — טופס פוליויז'ן מלא, ממתין לחתימה",
+              "שלב ג' — שליפה מהר הביטוח + המסלקה (לא התחיל)",
             ],
             table: null,
           },
         ],
         missing_information: [],
-        awaiting: ["Israel Ben-Ami's signature — cannot be skipped or signed on his behalf"],
+        awaiting: ["החתימה של ישראל בן-עמי — לא ניתן לדלג עליה או לחתום בשמו"],
         footnotes: [],
       },
       { intent: "process_status" },
@@ -278,24 +279,24 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   client_overview: () =>
     response(
       {
-        title: "Dana Cohen",
+        title: "דנה כהן",
         status: "ok",
-        summary: "052-000-0000 · dana@example.co.il · client since 2019",
+        summary: "052-000-0000 · dana@example.co.il · לקוחה מ-2019",
         sections: [
           {
-            title: "Holds",
+            title: "מחזיקה",
             lines: [],
             table: {
-              headers: ["Product", "Insurer", "Since"],
+              headers: ["מוצר", "מבטח", "מאז"],
               rows: [
-                ["Pension fund", "Migdal", "2019"],
-                ["Life insurance", "Harel", "2022"],
-                ["Health insurance", "Clal", "2021"],
+                ["קרן פנסיה", "מגדל", "2019"],
+                ["ביטוח חיים", "הראל", "2022"],
+                ["ביטוח בריאות", "כלל", "2021"],
               ],
               caption: null,
             },
           },
-          { title: "Not on file", lines: ["Provident fund", "Study fund"], table: null },
+          { title: "לא בתיק", lines: ["קופת גמל", "קרן השתלמות"], table: null },
         ],
         missing_information: [],
         awaiting: [],
@@ -306,21 +307,21 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   life_insurance_milestone: () =>
     response(
       {
-        title: "Life policies at their 3-year mark",
+        title: "פוליסות ביטוח חיים בנקודת 3 השנים",
         status: "ok",
-        summary: "One policy reached its milestone yesterday.",
+        summary: "פוליסה אחת הגיעה לאבן הדרך שלה אתמול.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["Client", "Insurer", "Issued"],
-              rows: [["Dana Cohen", "Harel", "3 years ago yesterday"]],
+              headers: ["לקוח", "מבטח", "תאריך הנפקה"],
+              rows: [["דנה כהן", "הראל", "לפני 3 שנים, אתמול"]],
               caption: null,
             },
           },
         ],
-        missing_information: ["Tal Barak's life policy has no issue date — reported, not skipped"],
+        missing_information: ["לפוליסת החיים של טל ברק אין תאריך הנפקה — דווח, לא הושמט"],
         awaiting: [],
         footnotes: [],
       },
@@ -329,19 +330,19 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   client_activity_log: () =>
     response(
       {
-        title: "Activity log — C-1003",
+        title: "יומן פעולות — C-1003",
         status: "ok",
-        summary: "Everything Milo has written onto this card.",
+        summary: "כל מה שמילו כתב בכרטיס הזה.",
         sections: [
           {
             title: null,
             lines: [],
             table: {
-              headers: ["When", "Action", "Outcome"],
+              headers: ["מתי", "פעולה", "תוצאה"],
               rows: [
-                ["Today 09:12", "Tax certificates produced (3 of 4)", "success"],
-                ["Yesterday 14:40", "Discount check across 4 insurers", "partial"],
-                ["3 days ago", "Documents received over WhatsApp", "success"],
+                ["היום 09:12", "אישורי מס הופקו (3 מתוך 4)", "הצלחה"],
+                ["אתמול 14:40", "בדיקת הנחות אצל 4 מבטחים", "חלקי"],
+                ["לפני 3 ימים", "מסמכים התקבלו בוואטסאפ", "הצלחה"],
               ],
               caption: null,
             },
@@ -356,19 +357,19 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
   appointment_booking: () =>
     response(
       {
-        title: "Policy review — times that are actually free",
+        title: "בדיקת פוליסה — שעות שפנויות באמת",
         status: "ok",
-        summary: "45 minutes. Checked against the diary just now.",
+        summary: "45 דקות. נבדק מול היומן ממש עכשיו.",
         sections: [
           {
-            title: "Offered",
-            lines: ["Wednesday 11:00", "Thursday 15:30"],
+            title: "הוצעו",
+            lines: ["יום רביעי 11:00", "יום חמישי 15:30"],
             table: null,
           },
         ],
         missing_information: [],
-        awaiting: ["Which of the two the client prefers"],
-        footnotes: ["A time that was not offered cannot be booked."],
+        awaiting: ["איזו מהשתיים הלקוח מעדיף"],
+        footnotes: ["שעה שלא הוצעה לא ניתן לקבוע."],
       },
       { intent: "appointment_booking" },
     ),
@@ -376,10 +377,11 @@ const REPLIES: Partial<Record<Intent, () => TurnResponse>> = {
 
 function conversational(message: string): TurnResponse {
   const text = message.toLowerCase();
-  if (/friday|open|hours/.test(text)) {
+  if (/(שישי|פתוח|פתוחים|שעות|friday|open|hours)/.test(text)) {
     return {
       reply:
-        "We're open Friday 09:00–12:30, and closed Saturday. Sunday to Thursday it's 09:00–17:00, Israel time.",
+        "תשובת דוגמה: פתוח ביום שישי 09:00–12:30, סגור בשבת, ראשון–חמישי 09:00–17:00. " +
+        "השעות האלה מגיעות מנתוני הדוגמה של הקונסולה, לא מ-business/agency.yaml.",
       intent: "unknown",
       status: "ok",
       missing_information: [],
@@ -390,7 +392,8 @@ function conversational(message: string): TurnResponse {
   }
   return {
     reply:
-      "I don't have that from the CRM, so I won't guess. Tell me the client and what you need, and I'll go and get it — or I'll hand it to you with the context I do have.",
+      "נתוני דוגמה — הקונסולה הזו אינה מחוברת למילו, ולכן אין תשובה לתת. " +
+      "הוסיפו טוקן במסך \"חיבור\" ושאלו שוב.",
     intent: "unknown",
     status: "ok",
     missing_information: [],
@@ -403,6 +406,11 @@ function conversational(message: string): TurnResponse {
 function renderMarkdown(report: Report): string {
   const mark = { ok: "✅", attention: "⚠️", blocked: "⛔", empty: "ℹ️" }[report.status];
   return `${mark} ${report.title}${report.summary ? `\n\n${report.summary}` : ""}`;
+}
+
+/** Stamp every mock report, so a screenshot of one carries its own disclaimer. */
+function label(report: Report): Report {
+  return { ...report, footnotes: [...report.footnotes, "נתוני דוגמה — לא ממילו ולא מה-CRM."] };
 }
 
 /** Sample ledger rows, so the dashboard can be reviewed with something in it. */
@@ -432,7 +440,7 @@ export function sampleActivity() {
         id: `sample-${day}-${i}`,
         at: at.toISOString(),
         source: (Math.random() < 0.7 ? "chat" : "scenario") as "chat" | "scenario",
-        prompt: "(sample)",
+        prompt: "(דוגמה)",
         intent,
         status: blocked ? "blocked" : "ok",
         reportTitle: null,

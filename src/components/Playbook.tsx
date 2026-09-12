@@ -16,8 +16,8 @@ export function Playbook({
     <div className="space-y-5">
       <Card>
         <CardHead
-          title="What Milo can do"
-          hint="The ten scenarios from the spec, plus the conversational extras. Running one here goes through the same graph as WhatsApp."
+          title="מה מילו יודע לעשות"
+          hint="עשרת התרחישים מהמפרט, ועוד התוספות השיחתיות. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
         />
         <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
           {SCENARIOS.map((scenario) => (
@@ -49,7 +49,7 @@ function ScenarioCard({
           <Tag tone="ink">#{scenario.scenario}</Tag>
         ) : (
           <Tag tone={scenario.audience === "client" ? "warm" : "neutral"}>
-            {scenario.audience === "client" ? "client-facing" : "extra"}
+            {scenario.audience === "client" ? "פונה ללקוח" : "תוספת"}
           </Tag>
         )}
       </div>
@@ -64,7 +64,7 @@ function ScenarioCard({
         <input
           value={client}
           onChange={(event) => setClient(event.target.value)}
-          placeholder="Client — name, C-1003 or ID"
+          placeholder="לקוח — שם, C-1003 או מספר זהות"
           className="mt-3 w-full rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body placeholder:text-muted/60 focus:border-ink-500 focus:outline-none"
         />
       )}
@@ -81,7 +81,7 @@ function ScenarioCard({
           })
         }
       >
-        {blocked ? "Name a client first" : "Run now"}
+        {blocked ? "נקבו קודם בלקוח" : "הרץ עכשיו"}
       </Button>
     </div>
   );

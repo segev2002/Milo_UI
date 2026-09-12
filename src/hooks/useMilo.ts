@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ApiError, sendTurn } from "../lib/api";
+import { ApiError, sendTurn, session } from "../lib/api";
 import { activityStore } from "../lib/activity";
 import type { ChatMessage, TurnRequest } from "../types";
 
@@ -8,7 +8,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const OPENING: ChatMessage = {
   id: "opening",
   role: "milo",
-  text: "Morning, Sigal. Ask me anything about the book — your list for today, a client's file, who's gone quiet. I only answer from the CRM and the systems, so if I don't know I'll say so.",
+  text: "בוקר טוב, סיגל. אפשר לשאול אותי כל דבר על התיקים — הרשימה שלך להיום, תיק של לקוח, מי נעלם. אני עונה רק מה-CRM ומהמערכות, ואם אני לא יודע אני אומר את זה.",
   at: new Date().toISOString(),
 };
 
@@ -42,6 +42,7 @@ export function useMilo() {
               ? {
                   ...message,
                   pending: false,
+                  demo: session.demo,
                   text: result.reply,
                   intent: result.intent,
                   status: result.status,
@@ -87,7 +88,7 @@ export function useMilo() {
       } catch (error) {
         const durationMs = Math.round(performance.now() - started);
         const text =
-          error instanceof ApiError ? error.message : "Something went wrong reaching Milo.";
+          error instanceof ApiError ? error.message : "משהו השתבש בפנייה למילו.";
         setMessages((prev) =>
           prev.map((message) =>
             message.id === placeholderId

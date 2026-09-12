@@ -8,6 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/agent": { target: process.env.MILO_API_URL ?? "http://localhost:8000", changeOrigin: true },
+      "/auth": { target: process.env.MILO_API_URL ?? "http://localhost:8000", changeOrigin: true },
       "/health": { target: process.env.MILO_API_URL ?? "http://localhost:8000", changeOrigin: true },
     },
   },

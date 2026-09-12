@@ -87,6 +87,8 @@ export interface ChatMessage {
   at: string;
   pending?: boolean;
   failed?: boolean;
+  /** True when this reply came from mock.ts and never touched the API. */
+  demo?: boolean;
   intent?: string | null;
   status?: string | null;
   report?: Report | null;
@@ -111,4 +113,29 @@ export interface ActivityEntry {
   missingCount: number;
   awaitingCount: number;
   withheldCount: number;
+}
+
+/** GET /auth/config — what the sign-in page needs to render itself. */
+export interface AuthConfig {
+  google_client_id: string | null;
+  google_sign_in_enabled: boolean;
+}
+
+/** POST /auth/google — api/routes/auth.py::LoginResponse */
+export interface LoginResponse {
+  token: string;
+  expires_in: number;
+  subject: string;
+  display_name: string;
+  role: string;
+  email: string;
+  picture: string | null;
+}
+
+/** The signed-in person, cached locally so the shell can greet without a round trip. */
+export interface SignedInUser {
+  display_name: string;
+  email: string;
+  role: string;
+  picture: string | null;
 }

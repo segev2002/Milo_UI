@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Frank Ruhl Libre", Georgia, serif;
 
   --color-ink-950: #032b20;
   --color-ink-900: #064e3b;

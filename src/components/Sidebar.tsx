@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { session } from "../lib/api";
 import type { Health, WhoAmI } from "../types";
 import {
   IconChat,
@@ -11,11 +12,11 @@ import {
 export type View = "dashboard" | "chat" | "playbook" | "ledger" | "settings";
 
 const NAV: { view: View; label: string; icon: ReactNode }[] = [
-  { view: "dashboard", label: "Overview", icon: <IconDashboard /> },
-  { view: "chat", label: "Ask Milo", icon: <IconChat /> },
-  { view: "playbook", label: "What he can do", icon: <IconPlaybook /> },
-  { view: "ledger", label: "Request log", icon: <IconLedger /> },
-  { view: "settings", label: "Connection", icon: <IconSettings /> },
+  { view: "dashboard", label: "סקירה", icon: <IconDashboard /> },
+  { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
+  { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
+  { view: "ledger", label: "יומן בקשות", icon: <IconLedger /> },
+  { view: "settings", label: "חיבור", icon: <IconSettings /> },
 ];
 
 export function Sidebar({
@@ -24,13 +25,18 @@ export function Sidebar({
   who,
   health,
   todayCount,
+  onSignOut,
 }: {
   view: View;
   onChange: (view: View) => void;
   who: WhoAmI | null;
   health: Health | null;
   todayCount: number;
+  onSignOut: () => void;
 }) {
+  // Falls back to the identity cached at sign-in, so the footer still names the
+  // person while /agent/whoami is in flight or the API is briefly unreachable.
+  const account = session.user;
   return (
     <aside className="flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90">
       <div className="px-6 pb-6 pt-7">
@@ -43,7 +49,7 @@ export function Sidebar({
               Milo
             </p>
             <p className="mt-1 text-[11px] tracking-wide text-champagne/55">
-              Sigal Insurance Agency
+              סוכנות הביטוח של סיגל
             </p>
           </div>
         </div>
@@ -67,7 +73,7 @@ export function Sidebar({
               {item.label}
               {item.view === "ledger" && todayCount > 0 && (
                 <span
-                  className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  className={`ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                     active ? "bg-ink-900/10 text-ink-900" : "bg-white/12 text-champagne/80"
                   }`}
                 >
@@ -86,18 +92,31 @@ export function Sidebar({
             aria-hidden
           />
           <span className="text-champagne/70">
-            {health ? `Connected · ${health.environment}` : "Not connected"}
+            {health ? `מחובר · ${health.environment}` : "לא מחובר"}
           </span>
         </div>
         {health?.all_integrations_mocked && (
           <p className="rounded-lg bg-white/8 px-2.5 py-2 leading-relaxed text-champagne/70">
-            Every integration is mocked — results are sample data, not the real CRM.
+            כל האינטגרציות מדומות — התוצאות הן נתוני דוגמה, לא ה-CRM האמיתי.
           </p>
         )}
-        {who && (
-          <p className="text-champagne/50">
-            {who.display_name} · {who.role}
-          </p>
+        {(who || account) && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-champagne/70">
+                {who?.display_name ?? account?.display_name}
+              </p>
+              <p className="truncate text-champagne/40" dir="ltr">
+                {account?.email ?? who?.role}
+              </p>
+            </div>
+            <button
+              onClick={onSignOut}
+              className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-champagne/60 underline underline-offset-2 transition-colors hover:bg-white/8 hover:text-champagne"
+            >
+              יציאה
+            </button>
+          </div>
         )}
       </div>
     </aside>

@@ -39,7 +39,7 @@ export function ReportView({ report }: { report: Report }) {
                           <th
                             key={header}
                             scope="col"
-                            className="border-b border-line pb-2 pr-4 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted"
+                            className="border-b border-line pb-2 pe-4 text-start text-[11px] font-semibold uppercase tracking-[0.06em] text-muted"
                           >
                             {header}
                           </th>
@@ -52,7 +52,7 @@ export function ReportView({ report }: { report: Report }) {
                           {row.map((cell, c) => (
                             <td
                               key={c}
-                              className={`border-b border-line/70 py-2.5 pr-4 ${
+                              className={`border-b border-line/70 py-2.5 pe-4 ${
                                 c === 0 ? "font-medium text-ink-900" : "text-body"
                               }`}
                             >
@@ -73,12 +73,12 @@ export function ReportView({ report }: { report: Report }) {
         ))}
 
         {report.missing_information.length > 0 && (
-          <Callout tone="warm" title="Missing information">
+          <Callout tone="warm" title="מידע חסר">
             {report.missing_information}
           </Callout>
         )}
         {report.awaiting.length > 0 && (
-          <Callout tone="ink" title="Waiting on">
+          <Callout tone="ink" title="ממתין ל">
             {report.awaiting}
           </Callout>
         )}
