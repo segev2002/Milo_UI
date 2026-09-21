@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage, TurnRequest } from "../types";
-import { session } from "../lib/api";
 import { SUGGESTED_PROMPTS, intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
+import { ClientDossierView } from "./ClientDossier";
 import { Button, Card, Tag, Typing } from "./ui";
 import { IconSend, IconSpark } from "./Icons";
 
@@ -86,11 +86,7 @@ export function Chat({
                 }
               }}
               rows={2}
-              placeholder={
-                session.demo
-                  ? "נתוני דוגמה — התשובות כאן מומצאות, לא ממילו"
-                  : "שאלו על לקוח, על הרשימה שלכם, על הנחה, על מסמך…"
-              }
+              placeholder="שאלו על לקוח, על הרשימה שלכם, על הנחה, על מסמך…"
               className="w-full resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-body placeholder:text-muted/70 focus:border-ink-500 focus:bg-white focus:outline-none"
             />
             <label className="mt-2 flex items-center gap-2 text-xs text-muted">
@@ -156,14 +152,21 @@ function Bubble({ message }: { message: ChatMessage }) {
               </div>
             )}
 
-            {message.report && <ReportView report={message.report} />}
+            {/* Prefer the structured answer: this console renders it, rather
+                than displaying whatever layout the backend chose. `report` is
+                the fallback for intents that have no typed payload yet. */}
+            {message.data?.kind === "client_dossier" ? (
+              <ClientDossierView dossier={message.data} />
+            ) : (
+              message.report && <ReportView report={message.report} />
+            )}
 
-            {!message.report && !!message.missing_information?.length && (
+            {!message.report && !message.data && !!message.missing_information?.length && (
               <Callout tone="warm" title="מידע חסר">
                 {message.missing_information}
               </Callout>
             )}
-            {!message.report && !!message.awaiting?.length && (
+            {!message.report && !message.data && !!message.awaiting?.length && (
               <Callout tone="ink" title="ממתין ל">
                 {message.awaiting}
               </Callout>

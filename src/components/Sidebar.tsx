@@ -1,42 +1,27 @@
 import type { ReactNode } from "react";
-import { session } from "../lib/api";
-import type { Health, WhoAmI } from "../types";
-import {
-  IconChat,
-  IconDashboard,
-  IconLedger,
-  IconPlaybook,
-  IconSettings,
-} from "./Icons";
+import type { Health } from "../types";
+import { IconChat, IconDashboard, IconLedger, IconPlaybook } from "./Icons";
 
-export type View = "dashboard" | "chat" | "playbook" | "ledger" | "settings";
+export type View = "dashboard" | "chat" | "playbook" | "ledger";
 
 const NAV: { view: View; label: string; icon: ReactNode }[] = [
   { view: "dashboard", label: "סקירה", icon: <IconDashboard /> },
   { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
   { view: "ledger", label: "יומן בקשות", icon: <IconLedger /> },
-  { view: "settings", label: "חיבור", icon: <IconSettings /> },
 ];
 
 export function Sidebar({
   view,
   onChange,
-  who,
   health,
   todayCount,
-  onSignOut,
 }: {
   view: View;
   onChange: (view: View) => void;
-  who: WhoAmI | null;
   health: Health | null;
   todayCount: number;
-  onSignOut: () => void;
 }) {
-  // Falls back to the identity cached at sign-in, so the footer still names the
-  // person while /agent/whoami is in flight or the API is briefly unreachable.
-  const account = session.user;
   return (
     <aside className="flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90">
       <div className="px-6 pb-6 pt-7">
@@ -99,24 +84,6 @@ export function Sidebar({
           <p className="rounded-lg bg-white/8 px-2.5 py-2 leading-relaxed text-champagne/70">
             כל האינטגרציות מדומות — התוצאות הן נתוני דוגמה, לא ה-CRM האמיתי.
           </p>
-        )}
-        {(who || account) && (
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-champagne/70">
-                {who?.display_name ?? account?.display_name}
-              </p>
-              <p className="truncate text-champagne/40" dir="ltr">
-                {account?.email ?? who?.role}
-              </p>
-            </div>
-            <button
-              onClick={onSignOut}
-              className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-champagne/60 underline underline-offset-2 transition-colors hover:bg-white/8 hover:text-champagne"
-            >
-              יציאה
-            </button>
-          </div>
         )}
       </div>
     </aside>

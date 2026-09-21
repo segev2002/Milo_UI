@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ApiError, sendTurn, session } from "../lib/api";
+import { ApiError, sendTurn } from "../lib/api";
 import { activityStore } from "../lib/activity";
 import type { ChatMessage, TurnRequest } from "../types";
 
@@ -42,11 +42,11 @@ export function useMilo() {
               ? {
                   ...message,
                   pending: false,
-                  demo: session.demo,
                   text: result.reply,
                   intent: result.intent,
                   status: result.status,
                   report: result.report,
+                  data: result.data ?? null,
                   missing_information: result.missing_information,
                   awaiting: result.awaiting,
                   withheld: result.withheld,
@@ -58,12 +58,13 @@ export function useMilo() {
 
         // A scenario node puts these on the report; a halt puts them at the
         // top level. Counting only one of the two undercounts what needs Sigal.
+        // Not every backend build sends them, so treat absence as none.
         const missing = Math.max(
           result.missing_information.length,
           result.report?.missing_information.length ?? 0,
         );
         const awaiting = Math.max(
-          result.awaiting.length,
+          (result.awaiting ?? []).length,
           result.report?.awaiting.length ?? 0,
         );
 
@@ -80,7 +81,7 @@ export function useMilo() {
           durationMs,
           missingCount: missing,
           awaitingCount: awaiting,
-          withheldCount: result.withheld.length,
+          withheldCount: (result.withheld ?? []).length,
         });
 
         if (request.intent === "restart") setMessages([OPENING]);

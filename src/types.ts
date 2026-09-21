@@ -28,9 +28,14 @@ export interface TurnResponse {
   intent: string | null;
   status: string | null;
   missing_information: string[];
-  awaiting: string[];
-  withheld: string[];
+  /** Not sent by every build — the UI treats absence as "none". */
+  awaiting?: string[];
+  //: Same for withheld. Kept so both old and new backends render.
+  withheld?: string[];
   report: Report | null;
+  /** Structured answer. Prefer this over `report` when present.
+   *  Optional: older builds and the mock transport do not send it. */
+  data?: TurnData | null;
 }
 
 export interface TurnRequest {
@@ -92,6 +97,7 @@ export interface ChatMessage {
   intent?: string | null;
   status?: string | null;
   report?: Report | null;
+  data?: TurnData | null;
   missing_information?: string[];
   awaiting?: string[];
   withheld?: string[];
@@ -115,27 +121,82 @@ export interface ActivityEntry {
   withheldCount: number;
 }
 
-/** GET /auth/config — what the sign-in page needs to render itself. */
-export interface AuthConfig {
-  google_client_id: string | null;
-  google_sign_in_enabled: boolean;
+/* --------------------------------------------------------------------------
+ * Structured answers — POST /agent/turn `data`
+ *
+ * A `Report` is a rendering: the backend picked sections, wrote Hebrew labels
+ * and formatted the numbers, because WhatsApp can only carry text. `data` is
+ * the same answer before any of that, so this console decides what to show,
+ * in what order, and how to format it.
+ * ----------------------------------------------------------------------- */
+
+export interface DossierClient {
+  crm_id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  id_number: string | null;
+  /** ISO date. */
+  date_of_birth: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  /** ISO datetime. */
+  last_action_at: string | null;
+  last_conversation_at: string | null;
+  created_at: string | null;
 }
 
-/** POST /auth/google — api/routes/auth.py::LoginResponse */
-export interface LoginResponse {
-  token: string;
-  expires_in: number;
-  subject: string;
-  display_name: string;
-  role: string;
-  email: string;
-  picture: string | null;
+/** One cover flag. The label is the CRM's own wording, not ours. */
+export interface DossierCover {
+  label: string;
+  held: boolean;
 }
 
-/** The signed-in person, cached locally so the shell can greet without a round trip. */
-export interface SignedInUser {
-  display_name: string;
-  email: string;
-  role: string;
-  picture: string | null;
+/** A premium or a balance. Unformatted on purpose — see the note above. */
+export interface DossierAmount {
+  label: string;
+  value: number;
+  currency: "ILS";
 }
+
+/** `held: null` means the CRM never computed it — distinct from "does not hold". */
+export interface DossierPresence {
+  product: string;
+  held: boolean | null;
+}
+
+/** One תהליך — what happened on this client's file. */
+export interface DossierProcess {
+  id: string | null;
+  opened_on: string | null;
+  closed_on: string | null;
+  type: string | null;
+  status: string | null;
+  is_closed: boolean;
+  company: string | null;
+  assignee: string | null;
+  notes: string | null;
+  last_activity_at: string | null;
+}
+
+export interface DossierRelation {
+  name: string;
+  relationship: string | null;
+  crm_id: string | null;
+}
+
+export interface ClientDossier {
+  kind: "client_dossier";
+  client: DossierClient;
+  covers: DossierCover[];
+  amounts: DossierAmount[];
+  presence: DossierPresence[];
+  processes: DossierProcess[];
+  related: DossierRelation[];
+  calculated_at: string | null;
+  /** False for CRMs with no per-policy resource, so we can say why. */
+  policy_level_available: boolean;
+}
+
+export type TurnData = ClientDossier;
