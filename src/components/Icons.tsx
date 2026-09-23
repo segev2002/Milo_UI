@@ -31,6 +31,14 @@ export const IconLedger = ({ className = base }: Props) => (
   </svg>
 );
 
+export const IconUsers = ({ className = base }: Props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M3 20a6 6 0 0 1 12 0" strokeLinecap="round" />
+    <path d="M16 5.5a3.5 3.5 0 0 1 0 6.9M17 20a6 6 0 0 0-1.8-4.3" strokeLinecap="round" />
+  </svg>
+);
+
 export const IconSend = ({ className = base }: Props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className={className}>
     <path d="M4 12 20 4l-3.5 16-5-6.5L4 12Z" strokeLinejoin="round" />

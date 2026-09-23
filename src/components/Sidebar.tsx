@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
-import type { Health } from "../types";
-import { IconChat, IconDashboard, IconLedger, IconPlaybook } from "./Icons";
+import type { Health, Identity } from "../types";
+import { IconChat, IconDashboard, IconLedger, IconPlaybook, IconUsers } from "./Icons";
 
-export type View = "dashboard" | "chat" | "playbook" | "ledger";
+export type View = "dashboard" | "chat" | "playbook" | "ledger" | "users";
 
-const NAV: { view: View; label: string; icon: ReactNode }[] = [
+/** `admin` items are hidden from everyone else. Hiding is courtesy, not
+    security — the server refuses the calls behind them either way. */
+const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "dashboard", label: "סקירה", icon: <IconDashboard /> },
   { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
   { view: "ledger", label: "יומן בקשות", icon: <IconLedger /> },
+  { view: "users", label: "ניהול משתמשים", icon: <IconUsers />, admin: true },
 ];
 
 export function Sidebar({
@@ -16,11 +19,15 @@ export function Sidebar({
   onChange,
   health,
   todayCount,
+  me,
+  onSignOut,
 }: {
   view: View;
   onChange: (view: View) => void;
   health: Health | null;
   todayCount: number;
+  me: Identity;
+  onSignOut: () => void;
 }) {
   return (
     <aside className="flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90">
@@ -41,7 +48,7 @@ export function Sidebar({
       </div>
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
-        {NAV.map((item) => {
+        {NAV.filter((item) => !item.admin || me.is_admin).map((item) => {
           const active = view === item.view;
           return (
             <button
@@ -71,6 +78,17 @@ export function Sidebar({
       </nav>
 
       <div className="shrink-0 space-y-3 border-t border-white/10 px-5 py-5 text-[11px]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-champagne/70" title={me.email}>
+            {me.display_name || me.email}
+          </span>
+          <button
+            onClick={onSignOut}
+            className="shrink-0 text-champagne/50 underline underline-offset-2 hover:text-champagne"
+          >
+            יציאה
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           <span
             className={`h-2 w-2 rounded-full ${health ? "bg-ink-300" : "bg-[#e0a56b]"}`}

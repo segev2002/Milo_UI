@@ -57,6 +57,30 @@ export interface WhoAmI {
   channel: string;
 }
 
+/** GET /auth/config — what the sign-in page needs before anyone is signed in. */
+export interface AuthConfig {
+  google_client_id: string | null;
+  google_sign_in_enabled: boolean;
+}
+
+/** GET /auth/me, POST /auth/google — who the session cookie says this is. */
+export interface Identity {
+  email: string;
+  display_name: string;
+  is_admin: boolean;
+}
+
+/** One row of the allowlist — GET /auth/users. */
+export interface AllowedUser {
+  email: string;
+  display_name: string | null;
+  is_admin: boolean;
+  active: boolean;
+  added_by: string | null;
+  created_at: string;
+  last_login_at: string | null;
+}
+
 /** GET /health */
 export interface Health {
   status: string;
