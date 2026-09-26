@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Health, Identity } from "../types";
 import { IconChat, IconDashboard, IconLedger, IconPlaybook, IconUsers } from "./Icons";
 
-export type View = "dashboard" | "chat" | "playbook" | "ledger" | "users";
+export type View = "dashboard" | "chat" | "playbook" | "ledger" | "tasks" | "users";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
     security — the server refuses the calls behind them either way. */
@@ -11,6 +11,7 @@ const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
   { view: "ledger", label: "יומן בקשות", icon: <IconLedger /> },
+  { view: "tasks", label: "משימות פתוחות", icon: <IconLedger /> },
   { view: "users", label: "ניהול משתמשים", icon: <IconUsers />, admin: true },
 ];
 
