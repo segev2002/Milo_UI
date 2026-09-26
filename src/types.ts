@@ -81,6 +81,19 @@ export interface AllowedUser {
   last_login_at: string | null;
 }
 
+/** One row of milo.open_tasks — GET /agent/tasks. A message from a number Milo did not recognise. */
+export interface OpenTask {
+  id: string;
+  phone: string;
+  name: string | null;
+  messages: { text: string; at: string }[];
+  status: "open" | "done";
+  created_at: string;
+  last_message_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
 /** GET /health */
 export interface Health {
   status: string;

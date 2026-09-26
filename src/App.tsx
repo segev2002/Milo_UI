@@ -9,6 +9,7 @@ import { Ledger } from "./components/Ledger";
 import { Login } from "./components/Login";
 import { Playbook } from "./components/Playbook";
 import { Sidebar } from "./components/Sidebar";
+import { Tasks } from "./components/Tasks";
 import { Users } from "./components/Users";
 import type { View } from "./components/Sidebar";
 
@@ -17,6 +18,7 @@ const TITLES: Record<View, { title: string; hint: string }> = {
   chat: { title: "שאל את מילו", hint: "יש לו את התיקים, המערכות והיומן" },
   playbook: { title: "מה הוא יודע לעשות", hint: "התרחישים מהמפרט, לפי דרישה" },
   ledger: { title: "יומן בקשות", hint: "כל פנייה שהקונסולה הזו שלחה" },
+  tasks: { title: "משימות פתוחות", hint: "פניות ממספרים לא מזוהים שממתינות לסיגל" },
   users: { title: "ניהול משתמשים", hint: "מי מורשה להיכנס לקונסולה" },
 };
 
@@ -115,6 +117,7 @@ export default function App() {
           )}
           {view === "playbook" && <Playbook busy={busy} onRun={run} />}
           {view === "ledger" && <Ledger entries={entries} />}
+          {view === "tasks" && <Tasks />}
           {view === "users" && me.is_admin && <Users me={me} />}
         </div>
       </main>

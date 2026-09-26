@@ -3,6 +3,7 @@ import type {
   AuthConfig,
   Health,
   Identity,
+  OpenTask,
   TurnRequest,
   TurnResponse,
 } from "../types";
@@ -123,4 +124,14 @@ export async function addUser(email: string, isAdmin: boolean): Promise<AllowedU
 
 export async function removeUser(email: string): Promise<void> {
   await request(`/auth/users/${encodeURIComponent(email)}`, { method: "DELETE" });
+}
+
+/* --- משימות פתוחות -------------------------------------------------------- */
+
+export async function listTasks(status: "open" | "done"): Promise<OpenTask[]> {
+  return request<OpenTask[]>(`/agent/tasks?status=${status}`);
+}
+
+export async function resolveTask(id: string): Promise<void> {
+  await request(`/agent/tasks/${encodeURIComponent(id)}/resolve`, { method: "POST" });
 }
