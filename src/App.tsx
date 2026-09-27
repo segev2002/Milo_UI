@@ -11,6 +11,7 @@ import { Playbook } from "./components/Playbook";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
 import { Users } from "./components/Users";
+import { DevBanner } from "./components/ui";
 import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string; hint: string }> = {
@@ -67,10 +68,18 @@ export default function App() {
   const head = TITLES[view];
 
   if (checking) return <div className="h-screen bg-ink-900" />;
-  if (!me) return <Login onSignedIn={setMe} />;
+  if (!me)
+    return (
+      <>
+        <DevBanner />
+        <Login onSignedIn={setMe} />
+      </>
+    );
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden">
+    <DevBanner />
+    <div className="flex min-h-0 flex-1 overflow-hidden">
       <Sidebar
         view={view}
         onChange={setView}
@@ -121,6 +130,7 @@ export default function App() {
           {view === "users" && me.is_admin && <Users me={me} />}
         </div>
       </main>
+    </div>
     </div>
   );
 }

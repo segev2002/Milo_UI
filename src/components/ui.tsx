@@ -134,6 +134,19 @@ export function Empty({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
+/** Shown only on the dev console (and `npm run dev`), never in production:
+    VITE_MILO_ENV is baked in at build time by the deploy workflow. */
+export const IS_DEV = import.meta.env.VITE_MILO_ENV === "development" || import.meta.env.DEV;
+
+export function DevBanner() {
+  if (!IS_DEV) return null;
+  return (
+    <div className="shrink-0 bg-blocked px-4 py-1.5 text-center text-xs font-semibold text-champagne">
+      סביבת פיתוח — זו לא הגרסה החיה של הקונסולה
+    </div>
+  );
+}
+
 export function Typing() {
   return (
     <span className="inline-flex items-center gap-1">
