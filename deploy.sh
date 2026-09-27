@@ -11,9 +11,10 @@
 # =============================================================================
 set -euo pipefail
 
-BUCKET="milo-ui"
-DISTRIBUTION="EZ8CULA3OUM6A"
-SITE="https://app.milo-agent-sigal.com"
+# Production by default; the GitHub workflow overrides these for development.
+BUCKET="${BUCKET:-milo-ui}"
+DISTRIBUTION="${DISTRIBUTION:-EZ8CULA3OUM6A}"
+SITE="${SITE:-https://app.milo-agent-sigal.com}"
 
 cd "$(dirname "$0")"
 

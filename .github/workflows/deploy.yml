@@ -1,0 +1,76 @@
+name: Deploy
+
+# Same flow as Milo_Agent: feature branch → PR into development → PR into
+# production. Every PR runs the checks; a push to development publishes the dev
+# console, a push to production publishes the real one.
+on:
+  pull_request:
+    branches: [development, production]
+  push:
+    branches: [development, production]
+  # Manual runs, for re-publishing an environment at the same commit.
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to AWS
+    needs: check
+    # PRs only run the checks. Each branch publishes to its own environment.
+    if: github.ref == 'refs/heads/production' || github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    # The GitHub Environment holds what differs per environment (AWS_ROLE_ARN,
+    # S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID, SITE_URL) and only accepts its own
+    # branch — so the development branch can never publish to production.
+    environment: ${{ github.ref_name }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    # Short-lived AWS credentials via OIDC — no AWS key stored in GitHub.
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      # deploy.sh builds, syncs to S3 and invalidates CloudFront. VITE_MILO_ENV
+      # is baked into the bundle at build time — it is what shows the dev banner.
+      - name: Build and publish
+        env:
+          BUCKET: ${{ vars.S3_BUCKET }}
+          DISTRIBUTION: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          SITE: ${{ vars.SITE_URL }}
+          VITE_MILO_ENV: ${{ github.ref_name }}
+        run: ./deploy.sh
