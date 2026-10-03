@@ -4,6 +4,7 @@ import type {
   Health,
   Identity,
   OpenTask,
+  TaskKind,
   TurnRequest,
   TurnResponse,
 } from "../types";
@@ -128,10 +129,10 @@ export async function removeUser(email: string): Promise<void> {
 
 /* --- משימות פתוחות -------------------------------------------------------- */
 
-export async function listTasks(status: "open" | "done"): Promise<OpenTask[]> {
-  return request<OpenTask[]>(`/agent/tasks?status=${status}`);
+export async function listTasks(kind: TaskKind, status: "open" | "done"): Promise<OpenTask[]> {
+  return request<OpenTask[]>(`/agent/tasks?kind=${kind}&status=${status}`);
 }
 
-export async function resolveTask(id: string): Promise<void> {
-  await request(`/agent/tasks/${encodeURIComponent(id)}/resolve`, { method: "POST" });
+export async function resolveTask(kind: TaskKind, id: string): Promise<void> {
+  await request(`/agent/tasks/${encodeURIComponent(id)}/resolve?kind=${kind}`, { method: "POST" });
 }

@@ -81,11 +81,16 @@ export interface AllowedUser {
   last_login_at: string | null;
 }
 
-/** One row of milo.open_tasks — GET /agent/tasks. A message from a number Milo did not recognise. */
+/** Which table: clients Milo could not help, or numbers he did not recognise. */
+export type TaskKind = "clients" | "new_clients";
+
+/** One row of milo.clients_open_tasks / milo.new_clients_open_tasks — GET /agent/tasks?kind=… */
 export interface OpenTask {
   id: string;
   phone: string;
   name: string | null;
+  /** Milo's one line on what the person actually wants. Null when filed word for word. */
+  summary: string | null;
   messages: { text: string; at: string }[];
   status: "open" | "done";
   created_at: string;

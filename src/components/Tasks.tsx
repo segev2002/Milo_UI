@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, listTasks, resolveTask } from "../lib/api";
-import type { OpenTask } from "../types";
+import type { OpenTask, TaskKind } from "../types";
 import { Button, Card, CardHead, Empty, Tag } from "./ui";
 import { when } from "./Dashboard";
 
 /**
- * Messages from numbers Milo did not recognise. He told each of them
- * "הבנתי שזה דחוף. אני מעביר לסיגל עכשיו." — this is where they arrive.
- * One task per number; marking it "טופל" closes it, and the next message from
- * that number opens a new one.
+ * Two kinds: clients whose request needs Sigal, and new numbers Milo did not
+ * recognise. Milo talks each one through first, so a task leads with his
+ * one-line summary of what the person wants. One task per number; marking it
+ * "טופל" closes it, and the next message from that number opens a new one.
  */
 export function Tasks() {
+  const [kind, setKind] = useState<TaskKind>("clients");
   const [status, setStatus] = useState<"open" | "done">("open");
   const [tasks, setTasks] = useState<OpenTask[]>([]);
   const [busy, setBusy] = useState(false);
@@ -18,12 +19,12 @@ export function Tasks() {
 
   const refresh = useCallback(async () => {
     try {
-      setTasks(await listTasks(status));
+      setTasks(await listTasks(kind, status));
       setError(null);
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את המשימות.");
     }
-  }, [status]);
+  }, [kind, status]);
 
   useEffect(() => {
     void refresh();
@@ -34,7 +35,7 @@ export function Tasks() {
     setBusy(true);
     let failure: string | null = null;
     try {
-      await resolveTask(task.id);
+      await resolveTask(kind, task.id);
     } catch (exc) {
       // e.g. someone else marked it first — the refreshed list shows that.
       failure = exc instanceof ApiError ? exc.message : "הסימון נכשל.";
@@ -49,9 +50,22 @@ export function Tasks() {
       <Card>
         <CardHead
           title="משימות פתוחות"
-          hint="הודעות ממספרים שמילו לא זיהה במערכת"
+          hint={kind === "clients" ? "בקשות של לקוחות שמילו לא יכול היה לטפל בהן" : "הודעות ממספרים שמילו לא זיהה במערכת"}
           right={
             <div className="flex gap-2">
+              {(["clients", "new_clients"] as const).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setKind(option)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    kind === option
+                      ? "border-ink-900 bg-ink-900 text-champagne"
+                      : "border-line bg-white text-body hover:border-ink-300"
+                  }`}
+                >
+                  {option === "clients" ? "לקוחות" : "לקוחות חדשים"}
+                </button>
+              ))}
               {(["open", "done"] as const).map((option) => (
                 <button
                   key={option}
@@ -88,6 +102,9 @@ export function Tasks() {
                     </p>
                     <Tag>{task.messages.length} הודעות</Tag>
                   </div>
+                  {task.summary && (
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-900">{task.summary}</p>
+                  )}
                   <ul className="mt-2 space-y-1">
                     {task.messages.map((message, i) => (
                       <li key={i} className="text-sm leading-relaxed text-body">
