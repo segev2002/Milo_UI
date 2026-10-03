@@ -99,6 +99,13 @@ export interface OpenTask {
   resolved_by: string | null;
 }
 
+/** One message of the WhatsApp chat behind a task — GET /agent/tasks/{id}/conversation */
+export interface TaskChatMessage {
+  role: "customer" | "milo";
+  text: string;
+  at: string;
+}
+
 /** GET /health */
 export interface Health {
   status: string;
