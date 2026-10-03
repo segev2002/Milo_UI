@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import { ApiError, listTasks, resolveTask } from "../lib/api";
-import type { OpenTask, TaskKind } from "../types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, listTasks, resolveTask, taskConversation } from "../lib/api";
+import type { OpenTask, TaskChatMessage, TaskKind } from "../types";
 import { Button, Card, CardHead, Empty, Tag } from "./ui";
 import { when } from "./Dashboard";
 
 /**
  * Two kinds: clients whose request needs Sigal, and new numbers Milo did not
  * recognise. Milo talks each one through first, so a task leads with his
- * one-line summary of what the person wants. One task per number; marking it
- * "טופל" closes it, and the next message from that number opens a new one.
+ * one-line summary of what the person wants; tapping it opens the WhatsApp
+ * conversation behind it. One task per number; marking it "טופל" closes it,
+ * and the next message from that number opens a new one.
  */
 export function Tasks() {
   const [kind, setKind] = useState<TaskKind>("clients");
@@ -16,6 +17,7 @@ export function Tasks() {
   const [tasks, setTasks] = useState<OpenTask[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -28,6 +30,7 @@ export function Tasks() {
 
   useEffect(() => {
     void refresh();
+    setOpenId(null);
   }, [refresh]);
 
   async function resolve(task: OpenTask) {
@@ -102,17 +105,18 @@ export function Tasks() {
                     </p>
                     <Tag>{task.messages.length} הודעות</Tag>
                   </div>
-                  {task.summary && (
-                    <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-900">{task.summary}</p>
-                  )}
-                  <ul className="mt-2 space-y-1">
-                    {task.messages.map((message, i) => (
-                      <li key={i} className="text-sm leading-relaxed text-body">
-                        <span className="text-xs text-muted">{when(message.at)} · </span>
-                        {message.text}
-                      </li>
-                    ))}
-                  </ul>
+                  <button
+                    onClick={() => setOpenId(openId === task.id ? null : task.id)}
+                    className="mt-2 flex w-full items-start gap-2 rounded-xl border border-line bg-white px-3 py-2 text-right text-sm font-semibold leading-relaxed text-ink-900 transition-colors hover:border-ink-300"
+                  >
+                    <span className="flex-1">
+                      {task.summary || task.messages[task.messages.length - 1]?.text || "ללא סיכום"}
+                    </span>
+                    <span className="text-xs font-normal text-muted">
+                      {openId === task.id ? "סגירת השיחה ▴" : "לשיחה המלאה ▾"}
+                    </span>
+                  </button>
+                  {openId === task.id && <Conversation kind={kind} taskId={task.id} />}
                   {task.status === "done" && (
                     <p className="mt-2 text-xs text-muted">
                       טופל {task.resolved_at ? when(task.resolved_at) : ""}
@@ -132,6 +136,49 @@ export function Tasks() {
           <Empty title={status === "open" ? "אין משימות פתוחות" : "אין משימות שטופלו"} />
         )}
       </Card>
+    </div>
+  );
+}
+
+/** The WhatsApp chat behind a task: the customer on the right, Milo on the left. */
+function Conversation({ kind, taskId }: { kind: TaskKind; taskId: string }) {
+  const [chat, setChat] = useState<TaskChatMessage[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const bottom = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    taskConversation(kind, taskId)
+      .then(setChat)
+      .catch((exc) => setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את השיחה."));
+  }, [kind, taskId]);
+
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "nearest" });
+  }, [chat]);
+
+  if (error) return <p className="mt-3 text-sm text-blocked">{error}</p>;
+  if (!chat) return <p className="mt-3 text-sm text-muted">טוען את השיחה…</p>;
+  if (!chat.length) return <p className="mt-3 text-sm text-muted">אין הודעות שמורות לשיחה הזו.</p>;
+
+  return (
+    <div className="mt-3 max-h-[480px] space-y-2 overflow-y-auto rounded-xl bg-[#efeae2] p-4">
+      {chat.map((message, i) => {
+        const milo = message.role === "milo";
+        return (
+          <div key={i} className={`flex ${milo ? "justify-end" : "justify-start"}`}>
+            <div
+              className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${milo ? "bg-white" : "bg-[#d9fdd3]"}`}
+            >
+              <p className={`text-xs font-semibold ${milo ? "text-[#1f7aec]" : "text-[#008069]"}`}>
+                {milo ? "מילו" : "הלקוח"}
+              </p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-ink-900">{message.text}</p>
+              <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
+            </div>
+          </div>
+        );
+      })}
+      <div ref={bottom} />
     </div>
   );
 }

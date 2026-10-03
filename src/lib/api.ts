@@ -4,6 +4,7 @@ import type {
   Health,
   Identity,
   OpenTask,
+  TaskChatMessage,
   TaskKind,
   TurnRequest,
   TurnResponse,
@@ -131,6 +132,10 @@ export async function removeUser(email: string): Promise<void> {
 
 export async function listTasks(kind: TaskKind, status: "open" | "done"): Promise<OpenTask[]> {
   return request<OpenTask[]>(`/agent/tasks?kind=${kind}&status=${status}`);
+}
+
+export async function taskConversation(kind: TaskKind, id: string): Promise<TaskChatMessage[]> {
+  return request<TaskChatMessage[]>(`/agent/tasks/${encodeURIComponent(id)}/conversation?kind=${kind}`);
 }
 
 export async function resolveTask(kind: TaskKind, id: string): Promise<void> {
