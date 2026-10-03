@@ -5,10 +5,10 @@ import { Button, Card, CardHead, Empty, Tag } from "./ui";
 import { when } from "./Dashboard";
 
 /**
- * Two kinds: clients whose request Milo could not handle ("אני אעביר את הבקשה
- * שלך לסיגל"), and new numbers he did not recognise ("הבנתי שזה דחוף. אני מעביר
- * לסיגל עכשיו."). One task per number; marking it "טופל" closes it, and the
- * next message from that number opens a new one.
+ * Two kinds: clients whose request needs Sigal, and new numbers Milo did not
+ * recognise. Milo talks each one through first, so a task leads with his
+ * one-line summary of what the person wants. One task per number; marking it
+ * "טופל" closes it, and the next message from that number opens a new one.
  */
 export function Tasks() {
   const [kind, setKind] = useState<TaskKind>("clients");
@@ -102,6 +102,9 @@ export function Tasks() {
                     </p>
                     <Tag>{task.messages.length} הודעות</Tag>
                   </div>
+                  {task.summary && (
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-900">{task.summary}</p>
+                  )}
                   <ul className="mt-2 space-y-1">
                     {task.messages.map((message, i) => (
                       <li key={i} className="text-sm leading-relaxed text-body">

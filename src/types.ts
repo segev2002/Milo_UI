@@ -89,6 +89,8 @@ export interface OpenTask {
   id: string;
   phone: string;
   name: string | null;
+  /** Milo's one line on what the person actually wants. Null when filed word for word. */
+  summary: string | null;
   messages: { text: string; at: string }[];
   status: "open" | "done";
   created_at: string;
