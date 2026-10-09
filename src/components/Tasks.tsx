@@ -9,15 +9,18 @@ import { when } from "./Dashboard";
  * recognise. Milo talks each one through first, so a task leads with his
  * one-line summary of what the person wants; tapping it opens the WhatsApp
  * conversation behind it. One task per number; marking it "טופל" closes it,
- * and the next message from that number opens a new one.
+ * and the next message from that number opens a new one. Open and done tasks
+ * are separate screens, so `status` comes from the sidebar.
  */
-export function Tasks() {
+export function Tasks({ status }: { status: "open" | "done" }) {
   const [kind, setKind] = useState<TaskKind>("clients");
-  const [status, setStatus] = useState<"open" | "done">("open");
-  const [tasks, setTasks] = useState<OpenTask[]>([]);
+  //: null until the first answer, so loading never reads as "no tasks".
+  const [tasks, setTasks] = useState<OpenTask[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  //: Conversations already fetched, so reopening one is instant. "רענון" clears it.
+  const chats = useRef(new Map<string, TaskChatMessage[]>());
 
   const refresh = useCallback(async () => {
     try {
@@ -29,6 +32,7 @@ export function Tasks() {
   }, [kind, status]);
 
   useEffect(() => {
+    setTasks(null);
     void refresh();
     setOpenId(null);
   }, [refresh]);
@@ -36,15 +40,17 @@ export function Tasks() {
   async function resolve(task: OpenTask) {
     if (!confirm(`לסמן את המשימה של ${task.name || task.phone} כטופלה?`)) return;
     setBusy(true);
-    let failure: string | null = null;
     try {
       await resolveTask(kind, task.id);
+      // Done: drop it here rather than reloading the whole list.
+      setTasks((prev) => prev?.filter((t) => t.id !== task.id) ?? null);
+      setError(null);
     } catch (exc) {
       // e.g. someone else marked it first — the refreshed list shows that.
-      failure = exc instanceof ApiError ? exc.message : "הסימון נכשל.";
+      const failure = exc instanceof ApiError ? exc.message : "הסימון נכשל.";
+      await refresh();
+      setError(failure);
     }
-    await refresh();
-    setError(failure);
     setBusy(false);
   }
 
@@ -52,7 +58,7 @@ export function Tasks() {
     <div className="space-y-5">
       <Card>
         <CardHead
-          title="משימות פתוחות"
+          title={status === "open" ? "משימות פתוחות" : "משימות שטופלו"}
           hint={kind === "clients" ? "בקשות של לקוחות שמילו לא יכול היה לטפל בהן" : "הודעות ממספרים שמילו לא זיהה במערכת"}
           right={
             <div className="flex gap-2">
@@ -69,20 +75,15 @@ export function Tasks() {
                   {option === "clients" ? "לקוחות" : "לקוחות חדשים"}
                 </button>
               ))}
-              {(["open", "done"] as const).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setStatus(option)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    status === option
-                      ? "border-ink-900 bg-ink-900 text-champagne"
-                      : "border-line bg-white text-body hover:border-ink-300"
-                  }`}
-                >
-                  {option === "open" ? "פתוחות" : "טופלו"}
-                </button>
-              ))}
-              <Button size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  chats.current.clear();
+                  void refresh();
+                }}
+                disabled={busy}
+              >
                 רענון
               </Button>
             </div>
@@ -93,7 +94,9 @@ export function Tasks() {
             {error}
           </p>
         )}
-        {tasks.length ? (
+        {tasks === null ? (
+          <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
+        ) : tasks.length ? (
           <ul className="divide-y divide-line">
             {tasks.map((task) => (
               <li key={task.id} className="flex items-start gap-4 px-5 py-4">
@@ -102,6 +105,9 @@ export function Tasks() {
                     <p className="text-sm font-medium text-ink-900">{task.name || "ללא שם"}</p>
                     <p className="text-xs text-muted" dir="ltr">
                       {task.phone}
+                    </p>
+                    <p className="text-xs text-muted" title="ההודעה האחרונה">
+                      {dateTime(task.last_message_at)}
                     </p>
                     <Tag>{task.messages.length} הודעות</Tag>
                   </div>
@@ -116,7 +122,9 @@ export function Tasks() {
                       {openId === task.id ? "סגירת השיחה ▴" : "לשיחה המלאה ▾"}
                     </span>
                   </button>
-                  {openId === task.id && <Conversation kind={kind} taskId={task.id} />}
+                  {openId === task.id && (
+                    <Conversation kind={kind} taskId={task.id} cache={chats.current} />
+                  )}
                   {task.status === "done" && (
                     <p className="mt-2 text-xs text-muted">
                       טופל {task.resolved_at ? when(task.resolved_at) : ""}
@@ -124,11 +132,22 @@ export function Tasks() {
                     </p>
                   )}
                 </div>
-                {task.status === "open" && (
-                  <Button size="sm" disabled={busy} onClick={() => void resolve(task)}>
-                    טופל
-                  </Button>
-                )}
+                <div className="flex shrink-0 flex-col gap-2">
+                  {task.status === "open" && (
+                    <Button size="sm" disabled={busy} onClick={() => void resolve(task)}>
+                      טופל
+                    </Button>
+                  )}
+                  {/* Opens a chat from whichever WhatsApp account is signed in on this device — Sigal's own, not Milo's. */}
+                  <a
+                    href={`https://wa.me/${task.phone.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink-900 transition-colors hover:bg-paper"
+                  >
+                    פתח בוואטסאפ
+                  </a>
+                </div>
               </li>
             ))}
           </ul>
@@ -140,17 +159,39 @@ export function Tasks() {
   );
 }
 
+/** "9 באוק׳ 14:32" — when the person last wrote to Milo. */
+function dateTime(iso: string): string {
+  return new Date(iso).toLocaleString("he-IL", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** The WhatsApp chat behind a task: the customer on the right, Milo on the left. */
-function Conversation({ kind, taskId }: { kind: TaskKind; taskId: string }) {
-  const [chat, setChat] = useState<TaskChatMessage[] | null>(null);
+function Conversation({
+  kind,
+  taskId,
+  cache,
+}: {
+  kind: TaskKind;
+  taskId: string;
+  cache: Map<string, TaskChatMessage[]>;
+}) {
+  const [chat, setChat] = useState<TaskChatMessage[] | null>(cache.get(taskId) ?? null);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (cache.has(taskId)) return;
     taskConversation(kind, taskId)
-      .then(setChat)
+      .then((messages) => {
+        cache.set(taskId, messages);
+        setChat(messages);
+      })
       .catch((exc) => setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את השיחה."));
-  }, [kind, taskId]);
+  }, [kind, taskId, cache]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "nearest" });

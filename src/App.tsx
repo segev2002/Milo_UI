@@ -20,11 +20,12 @@ const TITLES: Record<View, { title: string; hint: string }> = {
   playbook: { title: "מה הוא יודע לעשות", hint: "התרחישים מהמפרט, לפי דרישה" },
   ledger: { title: "יומן בקשות", hint: "כל פנייה שהקונסולה הזו שלחה" },
   tasks: { title: "משימות פתוחות", hint: "פניות של לקוחות ולקוחות חדשים שממתינות לסיגל" },
+  done: { title: "משימות שטופלו", hint: "פניות שכבר סומנו כטופלו" },
   users: { title: "ניהול משתמשים", hint: "מי מורשה להיכנס לקונסולה" },
 };
 
 export default function App() {
-  const [view, setView] = useState<View>("dashboard");
+  const [view, setView] = useState<View>("tasks");
   const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<Identity | null>(null);
   //: Until the cookie has been checked, showing either the console or the
@@ -57,7 +58,7 @@ export default function App() {
   const signOut = async () => {
     await logout().catch(() => null);
     setMe(null);
-    setView("dashboard");
+    setView("tasks");
   };
 
   const run = (prompt: string, request: TurnRequest = {}) => {
@@ -126,7 +127,8 @@ export default function App() {
           )}
           {view === "playbook" && <Playbook busy={busy} onRun={run} />}
           {view === "ledger" && <Ledger entries={entries} />}
-          {view === "tasks" && <Tasks />}
+          {view === "tasks" && <Tasks key="open" status="open" />}
+          {view === "done" && <Tasks key="done" status="done" />}
           {view === "users" && me.is_admin && <Users me={me} />}
         </div>
       </main>
