@@ -54,7 +54,7 @@ export function Users({ me }: { me: Identity }) {
   }
 
   async function remove(address: string) {
-    if (!confirm(`להסיר את ${address}? הגישה שלו לקונסולה תיפסק מיד.`)) return;
+    if (!confirm(`להסיר את ${address}? הגישה שלו לקונסולה תיפסק בכניסה הבאה, תוך 12 שעות לכל היותר.`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -115,7 +115,7 @@ export function Users({ me }: { me: Identity }) {
       <Card>
         <CardHead
           title="מי מורשה"
-          hint="הסרה מפסיקה את הגישה מיד, גם באמצע שיחה"
+          hint="הסרה נכנסת לתוקף בכניסה הבאה של המשתמש — תוך 12 שעות לכל היותר"
           right={<Tag tone="ink">{active.length} מורשים</Tag>}
         />
         {active.length ? (
@@ -151,7 +151,7 @@ export function Users({ me }: { me: Identity }) {
       </Card>
 
       <p className="px-1 pb-2 text-xs leading-relaxed text-muted">
-        הרשימה הזו היא ההרשאה עצמה — היא נבדקת מחדש בכל פנייה לשרת, לא רק בכניסה. Google רק מוכיח
+        הרשימה הזו היא ההרשאה עצמה — היא נבדקת בכל כניסה, וכניסה תקפה ל-12 שעות. Google רק מוכיח
         מי האדם; מה שקובע אם הוא נכנס זה שהכתובת שלו מופיעה כאן.
       </p>
     </div>
