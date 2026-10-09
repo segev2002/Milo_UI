@@ -138,6 +138,11 @@ export async function taskConversation(kind: TaskKind, id: string): Promise<Task
   return request<TaskChatMessage[]>(`/agent/tasks/${encodeURIComponent(id)}/conversation?kind=${kind}`);
 }
 
+/** A file a client sent with a task. Same-origin, so the session cookie goes with it. */
+export function taskMediaUrl(mediaUrl: string): string {
+  return url(`/agent/tasks/media?url=${encodeURIComponent(mediaUrl)}`);
+}
+
 export async function resolveTask(kind: TaskKind, id: string): Promise<void> {
   await request(`/agent/tasks/${encodeURIComponent(id)}/resolve?kind=${kind}`, { method: "POST" });
 }

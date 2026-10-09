@@ -91,7 +91,10 @@ export interface OpenTask {
   name: string | null;
   /** Milo's one line on what the person actually wants. Null when filed word for word. */
   summary: string | null;
-  messages: { text: string; at: string }[];
+  /** Set by the WhatsApp client menu: which team the task is for. Null for Sigal. */
+  team?: "claims" | "operations" | null;
+  /** `media_url`: a file the person sent (a claim's receipt), opened via /agent/tasks/media. */
+  messages: { text: string; at: string; media_url?: string }[];
   status: "open" | "done";
   created_at: string;
   last_message_at: string;
