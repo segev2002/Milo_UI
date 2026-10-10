@@ -156,3 +156,13 @@ export function Typing() {
     </span>
   );
 }
+
+/** "כרגע", "לפני 5 דק'", or a date for anything older than a day. */
+export function when(iso: string): string {
+  const then = new Date(iso);
+  const diff = Date.now() - then.getTime();
+  if (diff < 60_000) return "כרגע";
+  if (diff < 3_600_000) return `לפני ${Math.floor(diff / 60_000)} דק'`;
+  if (diff < 86_400_000) return `לפני ${Math.floor(diff / 3_600_000)} שע'`;
+  return then.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+}

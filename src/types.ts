@@ -156,23 +156,6 @@ export interface ChatMessage {
   durationMs?: number;
 }
 
-/** One row of the local ledger — what this console asked Milo and what came back. */
-export interface ActivityEntry {
-  id: string;
-  at: string;
-  source: "chat" | "scenario";
-  prompt: string;
-  intent: string | null;
-  status: string | null;
-  reportTitle: string | null;
-  reportStatus: ReportStatus | null;
-  ok: boolean;
-  durationMs: number;
-  missingCount: number;
-  awaitingCount: number;
-  withheldCount: number;
-}
-
 /* --------------------------------------------------------------------------
  * Structured answers — POST /agent/turn `data`
  *
@@ -252,3 +235,16 @@ export interface ClientDossier {
 }
 
 export type TurnData = ClientDossier;
+
+/** One row of milo.console_activity — GET /agent/activity (admins only). */
+export interface ConsoleActivity {
+  id: string;
+  at: string;
+  user_email: string;
+  user_name: string | null;
+  action: "chat" | "resolve_task";
+  /** The question asked, or the resolved task's summary. */
+  detail: string | null;
+  /** The resolved task's name or number. Null for a chat. */
+  customer: string | null;
+}

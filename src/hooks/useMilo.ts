@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { ApiError, sendTurn } from "../lib/api";
-import { activityStore } from "../lib/activity";
 import type { ChatMessage, TurnRequest } from "../types";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -17,7 +16,7 @@ export function useMilo() {
   const [busy, setBusy] = useState(false);
 
   const ask = useCallback(
-    async (prompt: string, request: TurnRequest = {}, source: "chat" | "scenario" = "chat") => {
+    async (prompt: string, request: TurnRequest = {}) => {
       const label = prompt.trim();
       if (!label && !request.intent) return;
 
@@ -56,34 +55,6 @@ export function useMilo() {
           ),
         );
 
-        // A scenario node puts these on the report; a halt puts them at the
-        // top level. Counting only one of the two undercounts what needs Sigal.
-        // Not every backend build sends them, so treat absence as none.
-        const missing = Math.max(
-          result.missing_information.length,
-          result.report?.missing_information.length ?? 0,
-        );
-        const awaiting = Math.max(
-          (result.awaiting ?? []).length,
-          result.report?.awaiting.length ?? 0,
-        );
-
-        activityStore.add({
-          id: placeholderId,
-          at: askedAt,
-          source,
-          prompt: label || (request.intent ?? ""),
-          intent: result.intent,
-          status: result.status,
-          reportTitle: result.report?.title ?? null,
-          reportStatus: result.report?.status ?? null,
-          ok: result.status !== "error",
-          durationMs,
-          missingCount: missing,
-          awaitingCount: awaiting,
-          withheldCount: (result.withheld ?? []).length,
-        });
-
         if (request.intent === "restart") setMessages([OPENING]);
         return result;
       } catch (error) {
@@ -97,21 +68,6 @@ export function useMilo() {
               : message,
           ),
         );
-        activityStore.add({
-          id: placeholderId,
-          at: askedAt,
-          source,
-          prompt: label || (request.intent ?? ""),
-          intent: request.intent ?? null,
-          status: "error",
-          reportTitle: null,
-          reportStatus: null,
-          ok: false,
-          durationMs,
-          missingCount: 0,
-          awaitingCount: 0,
-          withheldCount: 0,
-        });
         return null;
       } finally {
         setBusy(false);

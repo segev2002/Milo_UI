@@ -2,17 +2,16 @@ import type { ReactNode } from "react";
 import type { Health, Identity } from "../types";
 import { IconChat, IconDashboard, IconLedger, IconPlaybook, IconUsers } from "./Icons";
 
-export type View = "dashboard" | "chat" | "playbook" | "ledger" | "tasks" | "done" | "users";
+export type View = "activity" | "chat" | "playbook" | "tasks" | "done" | "users";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
     security — the server refuses the calls behind them either way. */
 const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "tasks", label: "משימות פתוחות", icon: <IconLedger /> },
   { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
-  { view: "ledger", label: "יומן בקשות", icon: <IconLedger /> },
   { view: "users", label: "ניהול משתמשים", icon: <IconUsers />, admin: true },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
-  { view: "dashboard", label: "סקירה", icon: <IconDashboard /> },
+  { view: "activity", label: "מעקב משתמשים", icon: <IconDashboard />, admin: true },
   { view: "done", label: "טופלו", icon: <IconLedger /> },
 ];
 
@@ -20,14 +19,12 @@ export function Sidebar({
   view,
   onChange,
   health,
-  todayCount,
   me,
   onSignOut,
 }: {
   view: View;
   onChange: (view: View) => void;
   health: Health | null;
-  todayCount: number;
   me: Identity;
   onSignOut: () => void;
 }) {
@@ -65,15 +62,6 @@ export function Sidebar({
             >
               <span className={active ? "text-ink-700" : "text-champagne/60"}>{item.icon}</span>
               {item.label}
-              {item.view === "ledger" && todayCount > 0 && (
-                <span
-                  className={`ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                    active ? "bg-ink-900/10 text-ink-900" : "bg-white/12 text-champagne/80"
-                  }`}
-                >
-                  {todayCount}
-                </span>
-              )}
             </button>
           );
         })}
