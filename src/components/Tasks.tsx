@@ -237,6 +237,16 @@ function Conversation({
                 {milo ? "מילו" : "הלקוח"}
               </p>
               <p className="whitespace-pre-line text-sm leading-relaxed text-ink-900">{message.text}</p>
+              {message.media_url && (
+                <a
+                  href={taskMediaUrl(message.media_url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-[#1f7aec] underline underline-offset-2"
+                >
+                  📎 קובץ
+                </a>
+              )}
               <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
             </div>
           </div>
