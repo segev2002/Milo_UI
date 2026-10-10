@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, listTasks, resolveTask, taskConversation, taskMediaUrl } from "../lib/api";
 import type { OpenTask, TaskChatMessage, TaskKind } from "../types";
-import { Button, Card, CardHead, Empty, Tag } from "./ui";
-import { when } from "./Dashboard";
+import { Button, Card, Empty, Tag, when } from "./ui";
 
 /**
  * Two kinds: clients whose request needs Sigal, and new numbers Milo did not
@@ -10,17 +9,16 @@ import { when } from "./Dashboard";
  * one-line summary of what the person wants; tapping it opens the WhatsApp
  * conversation behind it. One task per number; marking it "טופל" closes it,
  * and the next message from that number opens a new one. Open and done tasks
- * are separate screens, so `status` comes from the sidebar.
+ * are separate screens, so `status` comes from the sidebar; the done screen
+ * shows both kinds together, newest first.
  */
-/** Which client tasks to show: all, Sigal's own (no team), or one team's. */
-type TeamFilter = "all" | "sigal" | "claims" | "operations";
+type Task = OpenTask & { kind: TaskKind };
 const TEAM_LABEL = { claims: "תביעות", operations: "תפעול" } as const;
 
 export function Tasks({ status }: { status: "open" | "done" }) {
   const [kind, setKind] = useState<TaskKind>("clients");
-  const [team, setTeam] = useState<TeamFilter>("all");
   //: null until the first answer, so loading never reads as "no tasks".
-  const [tasks, setTasks] = useState<OpenTask[] | null>(null);
+  const [tasks, setTasks] = useState<Task[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -29,7 +27,13 @@ export function Tasks({ status }: { status: "open" | "done" }) {
 
   const refresh = useCallback(async () => {
     try {
-      setTasks(await listTasks(kind, status));
+      const kinds: TaskKind[] = status === "open" ? [kind] : ["clients", "new_clients"];
+      const lists = await Promise.all(
+        kinds.map(async (k) => (await listTasks(k, status)).map((task) => ({ ...task, kind: k }))),
+      );
+      const all = lists.flat();
+      if (status === "done") all.sort((a, b) => (b.resolved_at ?? "").localeCompare(a.resolved_at ?? ""));
+      setTasks(all);
       setError(null);
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את המשימות.");
@@ -42,16 +46,11 @@ export function Tasks({ status }: { status: "open" | "done" }) {
     setOpenId(null);
   }, [refresh]);
 
-  function shown(all: OpenTask[]): OpenTask[] {
-    if (kind !== "clients" || team === "all") return all;
-    return all.filter((task) => (team === "sigal" ? !task.team : task.team === team));
-  }
-
-  async function resolve(task: OpenTask) {
+  async function resolve(task: Task) {
     if (!confirm(`לסמן את המשימה של ${task.name || task.phone} כטופלה?`)) return;
     setBusy(true);
     try {
-      await resolveTask(kind, task.id);
+      await resolveTask(task.kind, task.id);
       // Done: drop it here rather than reloading the whole list.
       setTasks((prev) => prev?.filter((t) => t.id !== task.id) ?? null);
       setError(null);
@@ -67,12 +66,9 @@ export function Tasks({ status }: { status: "open" | "done" }) {
   return (
     <div className="space-y-5">
       <Card>
-        <CardHead
-          title={status === "open" ? "משימות פתוחות" : "משימות שטופלו"}
-          hint={kind === "clients" ? "בקשות של לקוחות שמילו לא יכול היה לטפל בהן" : "הודעות ממספרים שמילו לא זיהה במערכת"}
-          right={
+        <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
             <div className="flex gap-2">
-              {(["clients", "new_clients"] as const).map((option) => (
+              {status === "open" && (["clients", "new_clients"] as const).map((option) => (
                 <button
                   key={option}
                   onClick={() => setKind(option)}
@@ -97,35 +93,17 @@ export function Tasks({ status }: { status: "open" | "done" }) {
                 רענון
               </Button>
             </div>
-          }
-        />
+        </div>
         {error && (
           <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
             {error}
           </p>
         )}
-        {kind === "clients" && (
-          <div className="flex flex-wrap gap-2 border-b border-line bg-paper px-5 py-3">
-            {(["all", "sigal", "claims", "operations"] as const).map((option) => (
-              <button
-                key={option}
-                onClick={() => setTeam(option)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  team === option
-                    ? "border-ink-900 bg-ink-900 text-champagne"
-                    : "border-line bg-white text-body hover:border-ink-300"
-                }`}
-              >
-                {{ all: "הכול", sigal: "לסיגל", claims: "תביעות", operations: "תפעול" }[option]}
-              </button>
-            ))}
-          </div>
-        )}
         {tasks === null ? (
           <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
-        ) : shown(tasks).length ? (
+        ) : tasks.length ? (
           <ul className="divide-y divide-line">
-            {shown(tasks).map((task) => (
+            {tasks.map((task) => (
               <li key={task.id} className="flex items-start gap-4 px-5 py-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
@@ -168,7 +146,7 @@ export function Tasks({ status }: { status: "open" | "done" }) {
                     </div>
                   )}
                   {openId === task.id && (
-                    <Conversation kind={kind} taskId={task.id} cache={chats.current} />
+                    <Conversation kind={task.kind} taskId={task.id} cache={chats.current} />
                   )}
                   {task.status === "done" && (
                     <p className="mt-2 text-xs text-muted">

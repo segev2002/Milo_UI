@@ -1,6 +1,7 @@
 import type {
   AllowedUser,
   AuthConfig,
+  ConsoleActivity,
   Health,
   Identity,
   OpenTask,
@@ -145,4 +146,14 @@ export function taskMediaUrl(mediaUrl: string): string {
 
 export async function resolveTask(kind: TaskKind, id: string): Promise<void> {
   await request(`/agent/tasks/${encodeURIComponent(id)}/resolve?kind=${kind}`, { method: "POST" });
+}
+
+/* --- מעקב משתמשים -------------------------------------------------------- */
+
+/** `since` / `until` are ISO timestamps; both optional. Admins only. */
+export async function listActivity(filter: { email?: string; since?: string; until?: string }): Promise<ConsoleActivity[]> {
+  const query = new URLSearchParams(
+    Object.entries(filter).filter((entry): entry is [string, string] => !!entry[1]),
+  );
+  return request<ConsoleActivity[]>(`/agent/activity?${query}`);
 }

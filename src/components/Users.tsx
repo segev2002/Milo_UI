@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, addUser, listUsers, removeUser } from "../lib/api";
 import type { AllowedUser, Identity } from "../types";
-import { Button, Card, CardHead, Empty, Tag } from "./ui";
-import { when } from "./Dashboard";
+import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
 
 /**
  * The allowlist, and the only screen that writes to it.
