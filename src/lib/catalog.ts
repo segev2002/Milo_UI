@@ -156,16 +156,3 @@ export function intentLabel(intent: string | null | undefined): string {
   if (!intent) return "לא נותב";
   return INTENT_LABELS[intent] ?? intent.replace(/_/g, " ");
 }
-
-/** Phrasings Milo's keyword router actually matches (graph/router.py), so a
-    suggestion never lands on "I'm not sure what you're asking". */
-export const SUGGESTED_PROMPTS = [
-  "המשימות שלי להיום",
-  "יש ימי הולדת היום?",
-  "מי חסרים מוצרים?",
-  "מה יש לדנה כהן?",
-  "אילו לקוחות לא פעילים?",
-  "אילו מסמכים להחזר על ניתוח?",
-  "האם ישראל חתם?",
-  "מתי אנחנו פתוחים ביום שישי?",
-];

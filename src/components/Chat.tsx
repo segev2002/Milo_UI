@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage, TurnRequest } from "../types";
-import { SUGGESTED_PROMPTS, intentLabel } from "../lib/catalog";
+import { intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
 import { ClientDossierView } from "./ClientDossier";
 import { Button, Card, Tag, Typing } from "./ui";
-import { IconSend, IconSpark } from "./Icons";
+import { IconSend } from "./Icons";
 
 export function Chat({
   messages,
@@ -18,7 +18,6 @@ export function Chat({
   onRestart: () => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [client, setClient] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,7 +27,7 @@ export function Chat({
   function submit() {
     const prompt = draft.trim();
     if (!prompt || busy) return;
-    onAsk(prompt, clientReference(client));
+    onAsk(prompt);
     setDraft("");
   }
 
@@ -53,29 +52,8 @@ export function Chat({
         <div ref={endRef} />
       </div>
 
-      {messages.length <= 1 && (
-        <div className="shrink-0 border-t border-line bg-paper px-5 py-3">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-            <IconSpark className="h-3.5 w-3.5" /> נסו
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTED_PROMPTS.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => onAsk(prompt, clientReference(client))}
-                disabled={busy}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-xs text-body transition-colors hover:border-ink-300 hover:bg-ink-50 disabled:opacity-50"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="shrink-0 border-t border-line bg-white px-5 py-4">
         <div className="flex items-end gap-3">
-          <div className="flex-1">
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -85,21 +63,11 @@ export function Chat({
                   submit();
                 }
               }}
-              rows={2}
+              rows={4}
               placeholder="שאלו על לקוח, על הרשימה שלכם, על הנחה, על מסמך…"
-              className="w-full resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-body placeholder:text-muted/70 focus:border-ink-500 focus:bg-white focus:outline-none"
+              className="flex-1 resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-body placeholder:text-muted/70 focus:border-ink-500 focus:bg-white focus:outline-none"
             />
-            <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-              <span className="shrink-0">בנוגע ללקוח</span>
-              <input
-                value={client}
-                onChange={(event) => setClient(event.target.value)}
-                placeholder="לא חובה — שם, C-1003 או מספר זהות"
-                className="min-w-0 flex-1 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body placeholder:text-muted/60 focus:border-ink-500 focus:outline-none"
-              />
-            </label>
-          </div>
-          <Button onClick={submit} disabled={busy || !draft.trim()} className="mb-[38px]">
+          <Button onClick={submit} disabled={busy || !draft.trim()}>
             <IconSend className="h-4 w-4" />
             שלח
           </Button>

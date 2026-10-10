@@ -1,27 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
-import { useActivity } from "./hooks/useActivity";
 import { useMilo } from "./hooks/useMilo";
 import type { Health, Identity, TurnRequest } from "./types";
 import { Chat } from "./components/Chat";
-import { Dashboard } from "./components/Dashboard";
-import { Ledger } from "./components/Ledger";
 import { Login } from "./components/Login";
 import { Playbook } from "./components/Playbook";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
+import { UserActivity } from "./components/UserActivity";
 import { Users } from "./components/Users";
 import { DevBanner } from "./components/ui";
 import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string; hint: string }> = {
-  dashboard: { title: "סקירה", hint: "במה מילו טיפל" },
   chat: { title: "שאל את מילו", hint: "יש לו את התיקים, המערכות והיומן" },
   playbook: { title: "מה הוא יודע לעשות", hint: "התרחישים מהמפרט, לפי דרישה" },
-  ledger: { title: "יומן בקשות", hint: "כל פנייה שהקונסולה הזו שלחה" },
   tasks: { title: "משימות פתוחות", hint: "פניות של לקוחות ולקוחות חדשים שממתינות לסיגל" },
   done: { title: "משימות שטופלו", hint: "פניות שכבר סומנו כטופלו" },
   users: { title: "ניהול משתמשים", hint: "מי מורשה להיכנס לקונסולה" },
+  activity: { title: "מעקב משתמשים", hint: "כל פעולה של משתמשי הקונסולה — מול מילו ומול לקוחות" },
 };
 
 export default function App() {
@@ -32,7 +29,6 @@ export default function App() {
   //  sign-in page would be a guess — and a visible flash of the wrong one.
   const [checking, setChecking] = useState(true);
 
-  const { entries, metrics } = useActivity();
   const { messages, busy, ask, reset } = useMilo();
 
   /** Health is best-effort: the console stays usable when the API is briefly
@@ -63,7 +59,7 @@ export default function App() {
 
   const run = (prompt: string, request: TurnRequest = {}) => {
     setView("chat");
-    void ask(prompt, request, request.intent ? "scenario" : "chat");
+    void ask(prompt, request);
   };
 
   const head = TITLES[view];
@@ -85,7 +81,6 @@ export default function App() {
         view={view}
         onChange={setView}
         health={health}
-        todayCount={metrics.today}
         me={me}
         onSignOut={() => void signOut()}
       />
@@ -114,9 +109,6 @@ export default function App() {
               : "min-h-0 flex-1 overflow-y-auto px-8 pb-10"
           }
         >
-          {view === "dashboard" && (
-            <Dashboard metrics={metrics} entries={entries} onNavigate={setView} />
-          )}
           {view === "chat" && (
             <Chat
               messages={messages}
@@ -126,10 +118,10 @@ export default function App() {
             />
           )}
           {view === "playbook" && <Playbook busy={busy} onRun={run} />}
-          {view === "ledger" && <Ledger entries={entries} />}
           {view === "tasks" && <Tasks key="open" status="open" />}
           {view === "done" && <Tasks key="done" status="done" />}
           {view === "users" && me.is_admin && <Users me={me} />}
+          {view === "activity" && me.is_admin && <UserActivity />}
         </div>
       </main>
     </div>
