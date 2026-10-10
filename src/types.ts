@@ -107,6 +107,8 @@ export interface TaskChatMessage {
   role: "customer" | "milo";
   text: string;
   at: string;
+  /** A file the customer sent, opened via /agent/tasks/media. */
+  media_url?: string;
 }
 
 /** GET /health */
