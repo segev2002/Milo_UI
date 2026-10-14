@@ -4,7 +4,7 @@ import { intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
 import { ClientDossierView } from "./ClientDossier";
 import { Button, Card, Tag, Typing } from "./ui";
-import { IconSend } from "./Icons";
+import { LuSendHorizontal } from "react-icons/lu";
 
 export function Chat({
   messages,
@@ -68,7 +68,7 @@ export function Chat({
               className="flex-1 resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-body placeholder:text-muted/70 focus:border-ink-500 focus:bg-white focus:outline-none"
             />
           <Button onClick={submit} disabled={busy || !draft.trim()}>
-            <IconSend className="h-4 w-4" />
+            <LuSendHorizontal className="h-4 w-4 rotate-180" />
             שלח
           </Button>
         </div>

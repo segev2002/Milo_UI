@@ -1,248 +1,382 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, listTasks, resolveTask, taskConversation, taskMediaUrl } from "../lib/api";
-import type { OpenTask, TaskChatMessage, TaskKind } from "../types";
-import { Button, Card, Empty, Tag, when } from "./ui";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
+import type { Identity, Person, Task, TaskStatus } from "../types";
+import { LuPaperclip, LuPlus, LuRefreshCw, LuX } from "react-icons/lu";
+import { TaskDetails } from "./TaskDetails";
+import { Button, FIELD, Select, Tag, when } from "./ui";
 
 /**
- * Two kinds: clients whose request needs Sigal, and new numbers Milo did not
- * recognise. Milo talks each one through first, so a task leads with his
- * one-line summary of what the person wants; tapping it opens the WhatsApp
- * conversation behind it. One task per number; marking it "טופל" closes it,
- * and the next message from that number opens a new one. Open and done tasks
- * are separate screens, so `status` comes from the sidebar; the done screen
- * shows both kinds together, newest first.
+ * The task board: three columns, one small card per task. Milo files tasks from
+ * WhatsApp (a client he could not help, a number he did not recognise) and they
+ * reach everyone; console users create the rest. Drag a card to another column
+ * to change its status, or tap it for the whole task — files, history, and the
+ * WhatsApp conversation behind it. Done tasks stay on the board for 14 days.
  */
-type Task = OpenTask & { kind: TaskKind };
+
+export const COLUMNS: { status: TaskStatus; label: string }[] = [
+  { status: "new", label: "משימות חדשות" },
+  { status: "in_progress", label: "בתהליך" },
+  { status: "done", label: "בוצע" },
+];
+
 const TEAM_LABEL = { claims: "תביעות", operations: "תפעול" } as const;
 
-export function Tasks({ status }: { status: "open" | "done" }) {
-  const [kind, setKind] = useState<TaskKind>("clients");
+/** How often the board reloads on its own, so Milo's new tasks appear. */
+const REFRESH_MS = 60_000;
+
+export function Tasks({ me }: { me: Identity }) {
   //: null until the first answer, so loading never reads as "no tasks".
   const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [people, setPeople] = useState<Person[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [mine, setMine] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  //: Conversations already fetched, so reopening one is instant. "רענון" clears it.
-  const chats = useRef(new Map<string, TaskChatMessage[]>());
+  const [creating, setCreating] = useState(false);
+  const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const kinds: TaskKind[] = status === "open" ? [kind] : ["clients", "new_clients"];
-      const lists = await Promise.all(
-        kinds.map(async (k) => (await listTasks(k, status)).map((task) => ({ ...task, kind: k }))),
-      );
-      const all = lists.flat();
-      if (status === "done") all.sort((a, b) => (b.resolved_at ?? "").localeCompare(a.resolved_at ?? ""));
-      setTasks(all);
+      setTasks(await listTasks());
       setError(null);
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את המשימות.");
     }
-  }, [kind, status]);
+  }, []);
 
   useEffect(() => {
-    setTasks(null);
     void refresh();
-    setOpenId(null);
+    listPeople().then(setPeople).catch(() => setPeople([]));
+    const timer = setInterval(() => void refresh(), REFRESH_MS);
+    return () => clearInterval(timer);
   }, [refresh]);
 
-  async function resolve(task: Task) {
-    if (!confirm(`לסמן את המשימה של ${task.name || task.phone} כטופלה?`)) return;
-    setBusy(true);
+  /** A task changed — here or in its card. */
+  const replace = (task: Task) =>
+    setTasks((prev) => prev?.map((t) => (t.id === task.id ? task : t)) ?? null);
+
+  async function move(id: string, status: TaskStatus) {
+    const task = tasks?.find((t) => t.id === id);
+    if (!task || task.status === status) return;
+    replace({ ...task, status });
     try {
-      await resolveTask(task.kind, task.id);
-      // Done: drop it here rather than reloading the whole list.
-      setTasks((prev) => prev?.filter((t) => t.id !== task.id) ?? null);
-      setError(null);
+      replace(await updateTask(id, { status }));
     } catch (exc) {
-      // e.g. someone else marked it first — the refreshed list shows that.
-      const failure = exc instanceof ApiError ? exc.message : "הסימון נכשל.";
+      // e.g. reopened while Milo already opened a new task for the number.
+      const failure = exc instanceof ApiError ? exc.message : "העברת המשימה נכשלה.";
       await refresh();
       setError(failure);
     }
-    setBusy(false);
   }
 
+  const shown = (tasks ?? []).filter((t) => !mine || t.assignee === me.email);
+  const open = tasks?.find((t) => t.id === openId) ?? null;
+
   return (
-    <div className="space-y-5">
-      <Card>
-        <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
-            <div className="flex gap-2">
-              {status === "open" && (["clients", "new_clients"] as const).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setKind(option)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    kind === option
-                      ? "border-ink-900 bg-ink-900 text-champagne"
-                      : "border-line bg-white text-body hover:border-ink-300"
-                  }`}
-                >
-                  {option === "clients" ? "לקוחות" : "לקוחות חדשים"}
-                </button>
-              ))}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  chats.current.clear();
-                  void refresh();
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setCreating(true)}>
+          <LuPlus className="h-4 w-4" />
+          משימה חדשה
+        </Button>
+        <button
+          onClick={() => setMine(!mine)}
+          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+            mine ? "border-ink-900 bg-ink-900 text-champagne" : "border-line bg-white text-body hover:border-ink-300"
+          }`}
+        >
+          המשימות שלי
+        </button>
+        <button
+          onClick={() => void refresh()}
+          title="רענון"
+          aria-label="רענון"
+          className="mr-auto rounded-lg border border-line bg-white p-2 text-ink-700 transition-colors hover:bg-paper"
+        >
+          <LuRefreshCw className="h-4 w-4" />
+        </button>
+      </div>
+
+      {error && (
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+          {error}
+        </p>
+      )}
+
+      {tasks === null ? (
+        <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
+      ) : (
+        // On a phone the columns stack: new on top, then in progress, then done.
+        <div className="grid gap-4 md:grid-cols-3">
+          {COLUMNS.map((column) => {
+            const cards = shown.filter((t) => t.status === column.status);
+            return (
+              <section
+                key={column.status}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(column.status);
                 }}
-                disabled={busy}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => {
+                  setDragOver(null);
+                  void move(e.dataTransfer.getData("text/plain"), column.status);
+                }}
+                className={`flex min-h-[120px] flex-col rounded-2xl border p-3 transition-colors md:min-h-[200px] ${
+                  dragOver === column.status ? "border-ink-300 bg-ink-50" : "border-line bg-paper"
+                }`}
               >
-                רענון
-              </Button>
-            </div>
+                <h2 className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold text-ink-900">
+                  {column.label}
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-muted">
+                    {cards.length}
+                  </span>
+                </h2>
+                <ul className="space-y-2">
+                  {cards.map((task) => (
+                    <li key={task.id}>
+                      <TaskCard task={task} people={people} onOpen={() => setOpenId(task.id)} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
         </div>
-        {error && (
-          <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
-            {error}
-          </p>
-        )}
-        {tasks === null ? (
-          <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
-        ) : tasks.length ? (
-          <ul className="divide-y divide-line">
-            {tasks.map((task) => (
-              <li key={task.id} className="flex items-start gap-4 px-5 py-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-x-3">
-                    <p className="text-sm font-medium text-ink-900">{task.name || "ללא שם"}</p>
-                    <p className="text-xs text-muted" dir="ltr">
-                      {task.phone}
-                    </p>
-                    <p className="text-xs text-muted" title="ההודעה האחרונה">
-                      {dateTime(task.last_message_at)}
-                    </p>
-                    <Tag>{task.messages.length} הודעות</Tag>
-                    {task.team && <Tag tone="warm">{TEAM_LABEL[task.team]}</Tag>}
-                  </div>
-                  <button
-                    onClick={() => setOpenId(openId === task.id ? null : task.id)}
-                    className="mt-2 flex w-full items-start gap-2 rounded-xl border border-line bg-white px-3 py-2 text-right text-sm font-semibold leading-relaxed text-ink-900 transition-colors hover:border-ink-300"
-                  >
-                    <span className="flex-1">
-                      {task.summary || task.messages[task.messages.length - 1]?.text || "ללא סיכום"}
-                    </span>
-                    <span className="text-xs font-normal text-muted">
-                      {openId === task.id ? "סגירת השיחה ▴" : "לשיחה המלאה ▾"}
-                    </span>
-                  </button>
-                  {task.messages.some((message) => message.media_url) && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {task.messages
-                        .filter((message) => message.media_url)
-                        .map((message, i) => (
-                          <a
-                            key={i}
-                            href={taskMediaUrl(message.media_url!)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-900 underline-offset-2 hover:underline"
-                          >
-                            קובץ {i + 1}
-                          </a>
-                        ))}
-                    </div>
-                  )}
-                  {openId === task.id && (
-                    <Conversation kind={task.kind} taskId={task.id} cache={chats.current} />
-                  )}
-                  {task.status === "done" && (
-                    <p className="mt-2 text-xs text-muted">
-                      טופל {task.resolved_at ? when(task.resolved_at) : ""}
-                      {task.resolved_by && ` · על ידי ${task.resolved_by}`}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col gap-2">
-                  {task.status === "open" && (
-                    <Button size="sm" disabled={busy} onClick={() => void resolve(task)}>
-                      טופל
-                    </Button>
-                  )}
-                  {/* Opens a chat from whichever WhatsApp account is signed in on this device — Sigal's own, not Milo's. */}
-                  <a
-                    href={`https://wa.me/${task.phone.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink-900 transition-colors hover:bg-paper"
-                  >
-                    פתח בוואטסאפ
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Empty title={status === "open" ? "אין משימות פתוחות" : "אין משימות שטופלו"} />
-        )}
-      </Card>
+      )}
+
+      {open && (
+        <TaskDetails
+          key={open.id}
+          task={open}
+          people={people}
+          me={me}
+          onChange={replace}
+          onClose={() => setOpenId(null)}
+        />
+      )}
+      {creating && (
+        <NewTask
+          people={people}
+          onCreated={(task, warning) => {
+            setTasks((prev) => [task, ...(prev ?? [])]);
+            setCreating(false);
+            setError(warning);
+          }}
+          onClose={() => setCreating(false)}
+        />
+      )}
     </div>
   );
 }
 
-/** "9 באוק׳ 14:32" — when the person last wrote to Milo. */
-function dateTime(iso: string): string {
-  return new Date(iso).toLocaleString("he-IL", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+/** What the card leads with: its title, else Milo's summary, else the last message. */
+export function taskTitle(task: Task): string {
+  return task.title || task.summary || task.messages[task.messages.length - 1]?.text || "ללא כותרת";
 }
 
-/** The WhatsApp chat behind a task: the customer on the right, Milo on the left. */
-function Conversation({
-  kind,
-  taskId,
-  cache,
+export function sourceLabel(task: Task): string {
+  if (task.team) return TEAM_LABEL[task.team];
+  if (task.kind === "clients") return "מילו · לקוח";
+  if (task.kind === "new_clients") return "מילו · לקוח חדש";
+  return "ידני";
+}
+
+export function personName(people: Person[], email: string | null): string {
+  if (!email) return "";
+  return people.find((p) => p.email === email)?.display_name || email.split("@")[0];
+}
+
+function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOpen: () => void }) {
+  const fileCount = task.files.length + task.messages.filter((m) => m.media_url).length;
+  const assignee = personName(people, task.assignee);
+  return (
+    <button
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
+      onClick={onOpen}
+      className="w-full cursor-grab rounded-xl border border-line bg-white p-3 text-right shadow-sm transition-colors hover:border-ink-300 active:cursor-grabbing"
+    >
+      <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
+      {(task.name || task.phone) && (
+        <p className="mt-1 truncate text-xs text-muted">{task.name || <span dir="ltr">{task.phone}</span>}</p>
+      )}
+      <div className="mt-2 flex items-center gap-1.5">
+        <Tag tone={task.kind ? "warm" : "ink"}>{sourceLabel(task)}</Tag>
+        {fileCount > 0 && <Tag>📎 {fileCount}</Tag>}
+        <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
+        {assignee && (
+          <span
+            title={assignee}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-champagne"
+          >
+            {assignee[0]}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function NewTask({
+  people,
+  onCreated,
+  onClose,
 }: {
-  kind: TaskKind;
-  taskId: string;
-  cache: Map<string, TaskChatMessage[]>;
+  people: Person[];
+  /** `warning`: the task was created, but some files did not upload. */
+  onCreated: (task: Task, warning: string | null) => void;
+  onClose: () => void;
 }) {
-  const [chat, setChat] = useState<TaskChatMessage[] | null>(cache.get(taskId) ?? null);
+  const [form, setForm] = useState({ title: "", description: "", name: "", phone: "", assignee: "" });
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm({ ...form, [key]: e.target.value });
 
-  useEffect(() => {
-    if (cache.has(taskId)) return;
-    taskConversation(kind, taskId)
-      .then((messages) => {
-        cache.set(taskId, messages);
-        setChat(messages);
-      })
-      .catch((exc) => setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את השיחה."));
-  }, [kind, taskId, cache]);
-
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "nearest" });
-  }, [chat]);
-
-  if (error) return <p className="mt-3 text-sm text-blocked">{error}</p>;
-  if (!chat) return <p className="mt-3 text-sm text-muted">טוען את השיחה…</p>;
-  if (!chat.length) return <p className="mt-3 text-sm text-muted">אין הודעות שמורות לשיחה הזו.</p>;
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      // Empty fields are left out, not sent as "".
+      const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
+      let task = await createTask(fields as typeof form);
+      // The task exists now, so a file that fails does not undo it: it is named instead.
+      const failed: string[] = [];
+      for (const file of files) {
+        try {
+          task = await uploadTaskFile(task.id, file);
+        } catch {
+          failed.push(file.name);
+        }
+      }
+      onCreated(task, failed.length ? `המשימה נוצרה, אבל הקבצים האלה לא עלו: ${failed.join(", ")}. אפשר לצרף אותם מתוך המשימה.` : null);
+    } catch (exc) {
+      setError(exc instanceof ApiError ? exc.message : "יצירת המשימה נכשלה.");
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="mt-3 max-h-[480px] space-y-2 overflow-y-auto rounded-xl bg-[#efeae2] p-4">
-      {chat.map((message, i) => {
-        const milo = message.role === "milo";
-        return (
-          <div key={i} className={`flex ${milo ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${milo ? "bg-white" : "bg-[#d9fdd3]"}`}
-            >
-              <p className={`text-xs font-semibold ${milo ? "text-[#1f7aec]" : "text-[#008069]"}`}>
-                {milo ? "מילו" : "הלקוח"}
-              </p>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-ink-900">{message.text}</p>
-              <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
-            </div>
+    <Modal onClose={onClose} size="lg">
+      <form onSubmit={(e) => void submit(e)} className="space-y-5 p-5 sm:p-8">
+        <h2 className="font-display text-2xl font-semibold text-ink-900">משימה חדשה</h2>
+        <Labelled label="כותרת" hint="במשפט אחד: מה צריך לעשות">
+          <input required autoFocus value={form.title} onChange={set("title")} className={`${FIELD} text-base`} />
+        </Labelled>
+        <Labelled label="תיאור" hint="כל מה שמי שמטפל צריך לדעת">
+          <textarea rows={7} value={form.description} onChange={set("description")} className={`${FIELD} text-base`} />
+        </Labelled>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Labelled label="שם הלקוח" hint="לא חובה">
+            <input value={form.name} onChange={set("name")} className={`${FIELD} text-base`} />
+          </Labelled>
+          <Labelled label="טלפון" hint="לא חובה">
+            <input dir="ltr" value={form.phone} onChange={set("phone")} className={`${FIELD} text-right text-base`} />
+          </Labelled>
+        </div>
+        <Labelled label="אחראי/ת">
+          <Select
+            value={form.assignee}
+            onChange={(assignee) => setForm({ ...form, assignee })}
+            options={[
+              { value: "", label: "ללא שיוך" },
+              ...people.map((p) => ({ value: p.email, label: p.display_name || p.email })),
+            ]}
+          />
+        </Labelled>
+        <div>
+          <span className="mb-1.5 block text-sm font-semibold text-ink-900">
+            קבצים<span className="mr-2 text-xs font-normal text-muted">עד 20MB לקובץ</span>
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {files.map((file, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-ink-900"
+              >
+                <LuPaperclip className="h-3.5 w-3.5 shrink-0" />
+                {file.name}
+                <button
+                  type="button"
+                  aria-label={`הסרת ${file.name}`}
+                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                  className="text-muted hover:text-blocked"
+                >
+                  <LuX className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+            <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-ink-300 px-2.5 py-1.5 text-xs text-ink-700 hover:bg-ink-50">
+              <LuPlus className="h-3.5 w-3.5" />
+              צירוף קבצים
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  setFiles([...files, ...Array.from(e.target.files ?? [])]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
-        );
-      })}
-      <div ref={bottom} />
+        </div>
+        {error && <p className="text-sm text-blocked">{error}</p>}
+        <div className="flex gap-2 border-t border-line pt-5">
+          <Button type="submit" disabled={busy}>
+            {busy && files.length ? "מעלה קבצים…" : "יצירת המשימה"}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            ביטול
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function Labelled({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-semibold text-ink-900">
+        {label}
+        {hint && <span className="mr-2 text-xs font-normal text-muted">{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+/** A centred panel over a dimmed page. Escape or a click outside closes it. */
+export function Modal({
+  children,
+  onClose,
+  size = "md",
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  size?: "md" | "lg" | "xl";
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 sm:px-4 sm:py-10"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      {/* Full screen on a phone. */}
+      <div
+        className={`min-h-full w-full bg-white shadow-xl sm:min-h-0 sm:rounded-2xl ${
+          { md: "max-w-lg", lg: "max-w-4xl", xl: "max-w-5xl" }[size]
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }

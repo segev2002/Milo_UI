@@ -1,4 +1,8 @@
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import type { ReactNode } from "react";
+import { DayPicker } from "react-day-picker";
+import { he } from "react-day-picker/locale";
+import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
 import type { ReportStatus } from "../types";
 
 export function Card({
@@ -165,4 +169,158 @@ export function when(iso: string): string {
   if (diff < 3_600_000) return `לפני ${Math.floor(diff / 60_000)} דק'`;
   if (diff < 86_400_000) return `לפני ${Math.floor(diff / 3_600_000)} שע'`;
   return then.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+}
+
+/** The look of every text field, dropdown and date field in the console. */
+export const FIELD =
+  "w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink-900 outline-none focus:border-ink-300";
+
+/** A dropdown in the console's own design — the browser's native one cannot be styled. */
+export function Select<T extends string | number>({
+  value,
+  onChange,
+  options,
+  disabled,
+  className = "",
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string }[];
+  disabled?: boolean;
+  className?: string;
+}) {
+  const current = options.find((o) => o.value === value);
+  return (
+    <Listbox value={value} onChange={onChange} disabled={disabled}>
+      <ListboxButton className={`${FIELD} flex items-center justify-between gap-2 text-right disabled:opacity-60 ${className}`}>
+        <span className="truncate">{current?.label ?? ""}</span>
+        <LuChevronDown className="h-4 w-4 shrink-0 text-muted" />
+      </ListboxButton>
+      <ListboxOptions
+        anchor="bottom start"
+        className="z-[60] mt-1 max-h-64 w-[var(--button-width)] overflow-y-auto rounded-xl border border-line bg-white p-1 text-sm shadow-lg outline-none"
+      >
+        {options.map((option) => (
+          <ListboxOption
+            key={option.value}
+            value={option.value}
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-ink-900 data-[focus]:bg-ink-50 data-[selected]:font-semibold"
+          >
+            <LuCheck className="h-4 w-4 shrink-0 text-ink-700 opacity-0 [[data-selected]_&]:opacity-100" />
+            <span className="truncate">{option.label}</span>
+          </ListboxOption>
+        ))}
+      </ListboxOptions>
+    </Listbox>
+  );
+}
+
+/** Every quarter hour of the day, "00:00" … "23:45". */
+const TIMES = Array.from({ length: 96 }, (_, i) =>
+  `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`,
+);
+
+/**
+ * A date — and with `withTime`, a time — in the console's design. The value is
+ * the same string a native input gives: "YYYY-MM-DD", or "YYYY-MM-DDTHH:mm".
+ */
+export function DateField({
+  value,
+  onChange,
+  withTime,
+  placeholder = "בחירת תאריך",
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  withTime?: boolean;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [date, time = "09:00"] = value.split("T");
+  const selected = date ? new Date(`${date}T00:00`) : undefined;
+  const set = (day: string, at: string) => onChange(withTime ? `${day}T${at}` : day);
+  const label = selected
+    ? selected.toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) +
+      (withTime ? ` · ${time}` : "")
+    : placeholder;
+
+  return (
+    <Popover className={`relative ${className}`}>
+      <PopoverButton className={`${FIELD} flex items-center justify-between gap-2 text-right ${selected ? "" : "text-muted"}`}>
+        <span className="truncate">{label}</span>
+        <LuCalendarDays className="h-4 w-4 shrink-0 text-muted" />
+      </PopoverButton>
+      <PopoverPanel
+        anchor="bottom start"
+        className="milo-calendar z-[60] mt-1 rounded-xl border border-line bg-white p-3 shadow-lg outline-none"
+      >
+        {({ close }) => (
+          <div className="space-y-3">
+            <DayPicker
+              mode="single"
+              dir="rtl"
+              locale={he}
+              selected={selected}
+              defaultMonth={selected}
+              onSelect={(day) => {
+                if (!day) return;
+                set(isoDay(day), time);
+                if (!withTime) close();
+              }}
+            />
+            {withTime && (
+              <div className="flex items-center gap-2 border-t border-line pt-3 text-xs text-muted">
+                שעה
+                <Select
+                  value={time}
+                  onChange={(at) => set(date || isoDay(new Date()), at)}
+                  options={TIMES.map((t) => ({ value: t, label: t }))}
+                  className="py-1.5"
+                />
+              </div>
+            )}
+            {value && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  close();
+                }}
+                className="text-xs text-muted underline underline-offset-2 hover:text-ink-900"
+              >
+                ניקוי
+              </button>
+            )}
+          </div>
+        )}
+      </PopoverPanel>
+    </Popover>
+  );
+}
+
+/** "YYYY-MM-DD" in local time — toISOString would shift it by the timezone. */
+function isoDay(day: Date): string {
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Gmail or Google Calendar in a small window over the console, centred — Google
+ * cannot be shown inside the page. `authuser` opens the account the user signed in
+ * to the console with, not whichever is the browser's default. An empty new mail,
+ * or a new event (`event` fills its title and details).
+ */
+export function openGoogle(app: "mail" | "calendar", email: string, event?: { title: string; details: string }) {
+  const url =
+    app === "mail"
+      ? `https://mail.google.com/mail/?${new URLSearchParams({ view: "cm", fs: "1", authuser: email })}`
+      : `https://calendar.google.com/calendar/render?${new URLSearchParams({
+          action: "TEMPLATE",
+          authuser: email,
+          ...(event && { text: event.title, details: event.details }),
+        })}`;
+  const [width, height] = app === "mail" ? [600, 650] : [900, 720];
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+  window.open(url, `milo-${app}`, `popup,noopener,width=${width},height=${height},left=${left},top=${top}`);
 }

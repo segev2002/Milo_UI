@@ -1,18 +1,19 @@
 import type { ReactNode } from "react";
 import type { Health, Identity } from "../types";
-import { IconChat, IconDashboard, IconLedger, IconPlaybook, IconUsers } from "./Icons";
+import { LuActivity, LuBookOpen, LuBotMessageSquare, LuClipboardList, LuUsers } from "react-icons/lu";
 
-export type View = "activity" | "chat" | "playbook" | "tasks" | "done" | "users";
+export type View = "activity" | "chat" | "playbook" | "tasks" | "users";
+
+const ICON = "h-[18px] w-[18px]";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
     security — the server refuses the calls behind them either way. */
 const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
-  { view: "tasks", label: "משימות פתוחות", icon: <IconLedger /> },
-  { view: "chat", label: "שאל את מילו", icon: <IconChat /> },
-  { view: "users", label: "ניהול משתמשים", icon: <IconUsers />, admin: true },
-  { view: "playbook", label: "מה הוא יודע לעשות", icon: <IconPlaybook /> },
-  { view: "activity", label: "מעקב משתמשים", icon: <IconDashboard />, admin: true },
-  { view: "done", label: "טופלו", icon: <IconLedger /> },
+  { view: "tasks", label: "משימות", icon: <LuClipboardList className={ICON} /> },
+  { view: "chat", label: "שאל את מילו", icon: <LuBotMessageSquare className={ICON} /> },
+  { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
+  { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
+  { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
 ];
 
 export function Sidebar({
@@ -21,15 +22,17 @@ export function Sidebar({
   health,
   me,
   onSignOut,
+  className = "",
 }: {
   view: View;
   onChange: (view: View) => void;
   health: Health | null;
   me: Identity;
   onSignOut: () => void;
+  className?: string;
 }) {
   return (
-    <aside className="flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90">
+    <aside className={`flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90 ${className}`}>
       <div className="px-6 pb-6 pt-7">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-champagne font-display text-lg font-semibold text-ink-900">
