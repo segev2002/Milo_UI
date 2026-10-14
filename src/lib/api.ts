@@ -4,9 +4,9 @@ import type {
   ConsoleActivity,
   Health,
   Identity,
-  OpenTask,
+  Person,
+  Task,
   TaskChatMessage,
-  TaskKind,
   TurnRequest,
   TurnResponse,
 } from "../types";
@@ -58,7 +58,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(url(path), {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        // FormData sets its own (multipart, with the boundary).
+        ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(init?.headers ?? {}),
       },
     });
@@ -131,21 +132,56 @@ export async function removeUser(email: string): Promise<void> {
 
 /* --- משימות פתוחות -------------------------------------------------------- */
 
-export async function listTasks(kind: TaskKind, status: "open" | "done"): Promise<OpenTask[]> {
-  return request<OpenTask[]>(`/agent/tasks?kind=${kind}&status=${status}`);
+export async function listTasks(): Promise<Task[]> {
+  return request<Task[]>("/agent/tasks");
 }
 
-export async function taskConversation(kind: TaskKind, id: string): Promise<TaskChatMessage[]> {
-  return request<TaskChatMessage[]>(`/agent/tasks/${encodeURIComponent(id)}/conversation?kind=${kind}`);
+export async function createTask(task: {
+  title: string;
+  description?: string;
+  name?: string;
+  phone?: string;
+  assignee?: string;
+}): Promise<Task> {
+  return request<Task>("/agent/tasks", { method: "POST", body: JSON.stringify(task) });
 }
 
-/** A file a client sent with a task. Same-origin, so the session cookie goes with it. */
+/** `assignee: ""` unassigns. */
+export async function updateTask(
+  id: string,
+  changes: Partial<Pick<Task, "title" | "description" | "status">> & { assignee?: string },
+): Promise<Task> {
+  return request<Task>(`/agent/tasks/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  });
+}
+
+export async function uploadTaskFile(id: string, file: File): Promise<Task> {
+  const form = new FormData();
+  form.append("file", file);
+  return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/files`, { method: "POST", body: form });
+}
+
+/** Note in the task's history a mail or a meeting opened in the user's Gmail / Google Calendar. */
+export async function addTaskEvent(id: string, type: "email" | "meeting", text: string): Promise<Task> {
+  return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/events`, {
+    method: "POST",
+    body: JSON.stringify({ type, text }),
+  });
+}
+
+export async function listPeople(): Promise<Person[]> {
+  return request<Person[]>("/agent/tasks/people");
+}
+
+export async function taskConversation(id: string): Promise<TaskChatMessage[]> {
+  return request<TaskChatMessage[]>(`/agent/tasks/${encodeURIComponent(id)}/conversation`);
+}
+
+/** A file sent with a task, or attached to it. Same-origin, so the session cookie goes with it. */
 export function taskMediaUrl(mediaUrl: string): string {
   return url(`/agent/tasks/media?url=${encodeURIComponent(mediaUrl)}`);
-}
-
-export async function resolveTask(kind: TaskKind, id: string): Promise<void> {
-  await request(`/agent/tasks/${encodeURIComponent(id)}/resolve?kind=${kind}`, { method: "POST" });
 }
 
 /* --- מעקב משתמשים -------------------------------------------------------- */

@@ -25,6 +25,35 @@
 
   --color-attention: #b4761b;
   --color-blocked: #a32e22;
+
+  /* Sharper corners across the console. */
+  --radius-md: 0.25rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
+}
+
+/* The date picker (ui.tsx DateField), in the console's colours. */
+.milo-calendar .rdp-root {
+  --rdp-accent-color: var(--color-ink-900);
+  --rdp-accent-background-color: var(--color-ink-50);
+  --rdp-today-color: var(--color-ink-700);
+  --rdp-day-height: 38px;
+  --rdp-day-width: 38px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  --rdp-day_button-border-radius: var(--radius-lg);
+  --rdp-selected-border: 0;
+  font-size: 0.875rem;
+  color: var(--color-ink-900);
+}
+.milo-calendar .rdp-selected .rdp-day_button {
+  background-color: var(--color-ink-900);
+  color: var(--color-champagne);
+  font-weight: 600;
+}
+.milo-calendar .rdp-chevron {
+  fill: var(--color-ink-700);
 }
 
 @layer base {
@@ -46,7 +75,7 @@
 @utility card {
   background-color: #fff;
   border: 1px solid var(--color-line);
-  border-radius: 1rem;
+  border-radius: 0.5rem;
 }
 
 .fade-in {

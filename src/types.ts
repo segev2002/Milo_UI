@@ -81,25 +81,43 @@ export interface AllowedUser {
   last_login_at: string | null;
 }
 
-/** Which table: clients Milo could not help, or numbers he did not recognise. */
+/** Who filed a task: Milo, for a client he could not help or a number he did not
+ *  recognise — or null, for a task a console user created. */
 export type TaskKind = "clients" | "new_clients";
 
-/** One row of milo.clients_open_tasks / milo.new_clients_open_tasks — GET /agent/tasks?kind=… */
-export interface OpenTask {
+export type TaskStatus = "new" | "in_progress" | "done";
+
+/** One row of milo.tasks — GET /agent/tasks */
+export interface Task {
   id: string;
-  phone: string;
+  title: string | null;
+  description: string | null;
+  status: TaskStatus;
+  kind: TaskKind | null;
+  /** Set by the WhatsApp client menu: which team the task is for. */
+  team: "claims" | "operations" | null;
+  phone: string | null;
   name: string | null;
   /** Milo's one line on what the person actually wants. Null when filed word for word. */
   summary: string | null;
-  /** Set by the WhatsApp client menu: which team the task is for. Null for Sigal. */
-  team?: "claims" | "operations" | null;
   /** `media_url`: a file the person sent (a claim's receipt), opened via /agent/tasks/media. */
   messages: { text: string; at: string; media_url?: string }[];
-  status: "open" | "done";
+  /** Files console users attached; `key` opens via /agent/tasks/media. */
+  files: { key: string; name: string; by: string; at: string }[];
+  /** The card's history, oldest first. */
+  events: { type: "created" | "status" | "assignee" | "file" | "email" | "meeting"; text: string | null; by: string; at: string }[];
+  assignee: string | null;
+  created_by: string | null;
   created_at: string;
   last_message_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+}
+
+/** GET /agent/tasks/people — who a task can be assigned to. */
+export interface Person {
+  email: string;
+  display_name: string | null;
 }
 
 /** One message of the WhatsApp chat behind a task — GET /agent/tasks/{id}/conversation */

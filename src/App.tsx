@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { LuMenu } from "react-icons/lu";
+import { SiGmail, SiGooglecalendar } from "react-icons/si";
 import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
 import { useMilo } from "./hooks/useMilo";
 import type { Health, Identity, TurnRequest } from "./types";
@@ -9,14 +11,13 @@ import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
 import { UserActivity } from "./components/UserActivity";
 import { Users } from "./components/Users";
-import { DevBanner } from "./components/ui";
+import { DevBanner, openGoogle } from "./components/ui";
 import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string; hint: string }> = {
   chat: { title: "שאל את מילו", hint: "יש לו את התיקים, המערכות והיומן" },
   playbook: { title: "מה הוא יודע לעשות", hint: "התרחישים מהמפרט, לפי דרישה" },
-  tasks: { title: "משימות פתוחות", hint: "פניות של לקוחות ולקוחות חדשים שממתינות לסיגל" },
-  done: { title: "משימות שטופלו", hint: "פניות שכבר סומנו כטופלו" },
+  tasks: { title: "משימות", hint: "מה שמילו העביר מהוואטסאפ, ומה שהצוות פתח" },
   users: { title: "ניהול משתמשים", hint: "מי מורשה להיכנס לקונסולה" },
   activity: { title: "מעקב משתמשים", hint: "כל פעולה של משתמשי הקונסולה — מול מילו ומול לקוחות" },
 };
@@ -28,6 +29,8 @@ export default function App() {
   //: Until the cookie has been checked, showing either the console or the
   //  sign-in page would be a guess — and a visible flash of the wrong one.
   const [checking, setChecking] = useState(true);
+  //: The sidebar is a drawer on a phone.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { messages, busy, ask, reset } = useMilo();
 
@@ -77,36 +80,68 @@ export default function App() {
     <div className="flex h-screen flex-col overflow-hidden">
     <DevBanner />
     <div className="flex min-h-0 flex-1 overflow-hidden">
+      {menuOpen && <div className="fixed inset-0 z-40 bg-ink-950/40 md:hidden" onClick={() => setMenuOpen(false)} />}
       <Sidebar
         view={view}
-        onChange={setView}
+        onChange={(next) => {
+          setView(next);
+          setMenuOpen(false);
+        }}
         health={health}
         me={me}
         onSignOut={() => void signOut()}
+        className={`fixed inset-y-0 right-0 z-50 transition-transform md:static md:translate-x-0 ${
+          menuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       />
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 px-8 pb-5 pt-7">
-          <div>
+        <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 px-4 pb-5 pt-5 md:px-8 md:pt-7">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-label="תפריט"
+              className="rounded-lg border border-line bg-white p-2 text-ink-900 md:hidden"
+            >
+              <LuMenu className="h-5 w-5" />
+            </button>
+            <div>
             <h1 className="font-display text-[26px] font-semibold leading-none text-ink-900">
               {head.title}
             </h1>
             <p className="mt-2 text-sm text-muted">{head.hint}</p>
+            </div>
           </div>
-          <p className="text-sm text-muted">
-            {new Date().toLocaleDateString("he-IL", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
-          </p>
+          <div className="flex items-center gap-3">
+            {view === "tasks" && (
+              <>
+                <GoogleApp
+                  onClick={() => openGoogle("mail", me.email)}
+                  label="Gmail"
+                  icon={<SiGmail className="h-4 w-4 text-[#EA4335]" />}
+                />
+                <GoogleApp
+                  onClick={() => openGoogle("calendar", me.email)}
+                  label="יומן"
+                  icon={<SiGooglecalendar className="h-4 w-4 text-[#4285F4]" />}
+                />
+              </>
+            )}
+            <p className="hidden text-sm text-muted sm:block">
+              {new Date().toLocaleDateString("he-IL", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </p>
+          </div>
         </header>
 
         <div
           className={
             view === "chat"
-              ? "min-h-0 flex-1 overflow-hidden px-8 pb-6"
-              : "min-h-0 flex-1 overflow-y-auto px-8 pb-10"
+              ? "min-h-0 flex-1 overflow-hidden px-4 pb-4 md:px-8 md:pb-6"
+              : "min-h-0 flex-1 overflow-y-auto px-4 pb-10 md:px-8"
           }
         >
           {view === "chat" && (
@@ -118,13 +153,24 @@ export default function App() {
             />
           )}
           {view === "playbook" && <Playbook busy={busy} onRun={run} />}
-          {view === "tasks" && <Tasks key="open" status="open" />}
-          {view === "done" && <Tasks key="done" status="done" />}
+          {view === "tasks" && <Tasks me={me} />}
           {view === "users" && me.is_admin && <Users me={me} />}
           {view === "activity" && me.is_admin && <UserActivity />}
         </div>
       </main>
     </div>
     </div>
+  );
+}
+
+function GoogleApp({ onClick, label, icon }: { onClick: () => void; label: string; icon: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-paper"
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

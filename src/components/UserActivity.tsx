@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, listActivity, listUsers } from "../lib/api";
 import type { AllowedUser, ConsoleActivity } from "../types";
-import { Card, Empty, Tag } from "./ui";
+import { Card, DateField, Empty, Select, Tag } from "./ui";
 
 const ACTION_LABEL = { chat: "שאלה למילו", resolve_task: "סימן משימה כטופלה" } as const;
 
@@ -47,30 +47,25 @@ export function UserActivity() {
     if (!names.has(row.user_email)) names.set(row.user_email, row.user_name || row.user_email);
   }
 
-  const field =
-    "rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body focus:border-ink-500 focus:outline-none";
-
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3 text-xs text-muted">
         <label className="flex items-center gap-2">
           משתמש
-          <select value={email} onChange={(event) => setEmail(event.target.value)} className={field}>
-            <option value="">כולם</option>
-            {[...names].map(([address, name]) => (
-              <option key={address} value={address}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={email}
+            onChange={setEmail}
+            options={[{ value: "", label: "כולם" }, ...[...names].map(([address, name]) => ({ value: address, label: name }))]}
+            className="w-44 py-1.5 text-xs"
+          />
         </label>
         <label className="flex items-center gap-2">
           מתאריך
-          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={field} />
+          <DateField value={from} onChange={setFrom} className="w-48" />
         </label>
         <label className="flex items-center gap-2">
           עד תאריך
-          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={field} />
+          <DateField value={to} onChange={setTo} className="w-48" />
         </label>
       </div>
       {error && (
