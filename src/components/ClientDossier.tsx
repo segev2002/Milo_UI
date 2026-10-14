@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { ClientDossier, DossierAmount, DossierProcess } from "../types";
+import { LuChevronDown } from "react-icons/lu";
+import type { ClientDossier, DossierAmount, DossierPolicy, DossierProcess } from "../types";
 import { StatusPill, Tag } from "./ui";
 
 /* Formatting lives here, not in the backend. The API sends ISO dates and raw
@@ -103,14 +104,105 @@ function Processes({ items }: { items: DossierProcess[] }) {
   );
 }
 
+/** One policy row, as in Surense: a button that opens its covers. */
+function PolicyRow({ policy }: { policy: DossierPolicy }) {
+  const [open, setOpen] = useState(false);
+  // Savings products carry an accumulation and often no premium; insurance the reverse.
+  const money = policy.premium
+    ? `${ils.format(policy.premium)}${policy.premium_frequency ? ` · ${policy.premium_frequency}` : ""}`
+    : policy.accumulation
+      ? `צבירה ${ils.format(policy.accumulation)}`
+      : "—";
+
+  return (
+    <li className="py-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={!policy.covers.length}
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-right"
+      >
+        <span className="text-sm font-medium text-ink-900">{policy.company ?? "—"}</span>
+        <span className="text-[13px] text-body">{policy.product}</span>
+        {policy.policy_number && (
+          <span className="text-xs text-muted" dir="ltr">
+            {policy.policy_number}
+          </span>
+        )}
+        <StatusPill status={policy.active ? "ok" : "empty"}>{policy.status || "—"}</StatusPill>
+        <span className="ms-auto text-sm text-ink-900">{money}</span>
+        {policy.covers.length > 0 && (
+          <LuChevronDown className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        )}
+      </button>
+      {open && (
+        <div className="mt-2 overflow-x-auto rounded-lg border border-line">
+          <table className="w-full text-right text-xs">
+            <thead className="bg-paper text-muted">
+              <tr>
+                {["סוג כיסוי", "שם כיסוי", "מבוטח", "פרמיה", "סכום ביטוח", "תחילה", "סיום"].map((h) => (
+                  <th key={h} className="px-2 py-1.5 font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/60">
+              {policy.covers.map((c, i) => (
+                <tr key={i} className="text-body">
+                  <td className="px-2 py-1.5">{c.type ?? "—"}</td>
+                  <td className="px-2 py-1.5">{c.name ?? "—"}</td>
+                  <td className="px-2 py-1.5">
+                    {c.insured ?? "—"}
+                    {c.insured_role ? ` (${c.insured_role})` : ""}
+                  </td>
+                  <td className="px-2 py-1.5">{ils.format(c.premium)}</td>
+                  <td className="px-2 py-1.5">{ils.format(c.amount)}</td>
+                  <td className="px-2 py-1.5">{formatDate(c.start)}</td>
+                  <td className="px-2 py-1.5">{formatDate(c.end)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Policies grouped like Surense's products tab: "בריאות (3)", each group collapsible. */
+function PolicyGroup({ group, policies }: { group: string; policies: DossierPolicy[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg bg-paper px-3 py-2 text-right"
+      >
+        <span className="text-sm font-semibold text-ink-900">
+          {group || "אחר"} ({policies.length})
+        </span>
+        <LuChevronDown className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul className="divide-y divide-line/60 px-1">
+          {policies.map((p, i) => (
+            <PolicyRow key={`${p.policy_number}-${i}`} policy={p} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
-  const { client, covers, amounts, processes, related } = dossier;
-  const held = covers.filter((c) => c.held);
-  const notHeld = covers.filter((c) => !c.held);
+  const { client, amounts, processes, related, policies } = dossier;
   const premium = headlinePremium(amounts);
-  const otherAmounts = amounts.filter((a) => a.value > 0 && a !== premium);
   const years = age(client.date_of_birth);
-  const [showGaps, setShowGaps] = useState(false);
+  // Groups in the order Surense's own list puts them.
+  const groups = new Map<string, DossierPolicy[]>();
+  for (const p of policies ?? []) groups.set(p.group, [...(groups.get(p.group) ?? []), p]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-white">
@@ -141,39 +233,11 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
           </div>
         </Block>
 
-        {held.length > 0 && (
-          <Block title={`מוצרים בתיק · ${held.length}`}>
-            <div className="flex flex-wrap gap-1.5">
-              {held.map((c) => (
-                <Tag key={c.label} tone="ink">
-                  {c.label}
-                </Tag>
-              ))}
-            </div>
-            {notHeld.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowGaps((v) => !v)}
-                className="text-[13px] font-medium text-ink-700 underline underline-offset-2"
-              >
-                {showGaps ? "הסתר" : `${notHeld.length} מוצרים שאין לו/ה`}
-              </button>
-            )}
-            {showGaps && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {notHeld.map((c) => (
-                  <Tag key={c.label}>{c.label}</Tag>
-                ))}
-              </div>
-            )}
-          </Block>
-        )}
-
-        {otherAmounts.length > 0 && (
-          <Block title="סכומים">
-            <div className="divide-y divide-line/60">
-              {otherAmounts.map((a) => (
-                <Row key={a.label} label={a.label} value={ils.format(a.value)} />
+        {policies && policies.length > 0 && (
+          <Block title={`פוליסות · ${policies.length}`}>
+            <div className="space-y-2">
+              {[...groups].map(([group, items]) => (
+                <PolicyGroup key={group} group={group} policies={items} />
               ))}
             </div>
           </Block>
@@ -195,9 +259,7 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
         )}
 
         <div className="space-y-1 border-t border-line pt-3 text-xs text-muted">
-          {!dossier.policy_level_available && (
-            <p>ה-CRM מחזיר מוצרים ופרמיות, אך לא מספר פוליסה או תאריך הנפקה לכל פוליסה.</p>
-          )}
+          {!dossier.policy_level_available && <p>לא הצלחתי לטעון את הפוליסות מה-CRM.</p>}
           {dossier.calculated_at && <p>נתוני המוצרים חושבו ב-{formatDate(dossier.calculated_at)}.</p>}
         </div>
       </div>
