@@ -250,8 +250,38 @@ export interface ClientDossier {
   processes: DossierProcess[];
   related: DossierRelation[];
   calculated_at: string | null;
-  /** False for CRMs with no per-policy resource, so we can say why. */
+  /** What Surense's products tab shows. Null when the portfolio could not be read. */
+  policies: DossierPolicy[] | null;
+  /** False when the policies could not be read, so we can say why. */
   policy_level_available: boolean;
+}
+
+/** One policy, as in Surense's products tab. */
+export interface DossierPolicy {
+  /** Surense's product group: "פנסיה", "גמל/השתלמות", "בריאות" ... */
+  group: string;
+  /** Null when the company id is not in agency.yaml. */
+  company: string | null;
+  product: string;
+  policy_number: string | null;
+  status: string;
+  active: boolean;
+  premium: number;
+  premium_frequency: string | null;
+  accumulation: number;
+  covers: DossierPolicyCover[];
+}
+
+/** One row of a policy, shown when it is opened. */
+export interface DossierPolicyCover {
+  type: string | null;
+  name: string | null;
+  insured: string | null;
+  insured_role: string | null;
+  premium: number;
+  amount: number;
+  start: string | null;
+  end: string | null;
 }
 
 export type TurnData = ClientDossier;
