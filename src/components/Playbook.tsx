@@ -17,7 +17,7 @@ export function Playbook({
       <Card>
         <CardHead
           title="מה מילו יודע לעשות"
-          hint="עשרת התרחישים מהמפרט, ועוד התוספות השיחתיות. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
+          hint="מה שמילו יודע לעשות היום. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
         />
         <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
           {SCENARIOS.map((scenario) => (
@@ -64,7 +64,7 @@ function ScenarioCard({
         <input
           value={client}
           onChange={(event) => setClient(event.target.value)}
-          placeholder="לקוח — שם, C-1003 או מספר זהות"
+          placeholder={scenario.phoneInput ? "טלפון הלקוח" : "לקוח — שם, C-1003 או מספר זהות"}
           className="mt-3 w-full rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-body placeholder:text-muted/60 focus:border-ink-500 focus:outline-none"
         />
       )}
@@ -75,10 +75,12 @@ function ScenarioCard({
         className="mt-3"
         disabled={busy || blocked}
         onClick={() =>
-          onRun(scenario.prompt, {
-            intent: scenario.intent,
-            ...clientReference(client),
-          })
+          scenario.phoneInput
+            ? onRun(`${scenario.prompt} ${client.trim()}`, { intent: scenario.intent })
+            : onRun(scenario.prompt, {
+                intent: scenario.intent,
+                ...clientReference(client),
+              })
         }
       >
         {blocked ? "נקבו קודם בלקוח" : "הרץ עכשיו"}

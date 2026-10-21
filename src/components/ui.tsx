@@ -80,11 +80,13 @@ export function StatusPill({
   );
 }
 
-export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warm" | "ink" }) {
+export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warm" | "ink" | "milo" | "claim" }) {
   const tones = {
     neutral: "border-line bg-paper text-muted",
     warm: "border-champagne-deep bg-champagne-soft text-[#7a5a1a]",
     ink: "border-ink-100 bg-ink-50 text-ink-700",
+    milo: "border-milo/30 bg-milo/10 text-milo",
+    claim: "border-claim/30 bg-claim/10 text-claim",
   };
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>

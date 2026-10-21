@@ -153,6 +153,8 @@ export type Intent =
   | "appointment_booking"
   | "process_status"
   | "client_overview"
+  | "whatsapp_conversation"
+  | "open_tasks"
   | "restart"
   | "help"
   | "unknown";
@@ -284,7 +286,14 @@ export interface DossierPolicyCover {
   end: string | null;
 }
 
-export type TurnData = ClientDossier;
+/** "Show me the conversation with 0526747180" — milo.whatsapp_messages, oldest first. */
+export interface WhatsAppConversation {
+  kind: "whatsapp_conversation";
+  phone: string;
+  messages: TaskChatMessage[];
+}
+
+export type TurnData = ClientDossier | WhatsAppConversation;
 
 /** One row of milo.console_activity — GET /agent/activity (admins only). */
 export interface ConsoleActivity {

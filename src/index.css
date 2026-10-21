@@ -26,6 +26,10 @@
   --color-attention: #b4761b;
   --color-blocked: #a32e22;
 
+  /* Task cards: what Milo opened, and claims. */
+  --color-milo: #6a00f4;
+  --color-claim: #e04e5b;
+
   /* Sharper corners across the console. */
   --radius-md: 0.25rem;
   --radius-lg: 0.25rem;

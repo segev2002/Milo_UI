@@ -142,6 +142,7 @@ export async function createTask(task: {
   name?: string;
   phone?: string;
   assignee?: string;
+  team?: "claims";
 }): Promise<Task> {
   return request<Task>("/agent/tasks", { method: "POST", body: JSON.stringify(task) });
 }

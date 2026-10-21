@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
-import { COLUMNS, Modal, personName, sourceLabel, taskTitle } from "./Tasks";
+import { LuCalendarDays, LuChevronDown, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
+import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
@@ -28,6 +28,8 @@ export function TaskDetails({
   const [description, setDescription] = useState(task.description ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  //: Closed until asked for, so opening a task does not load the whole chat.
+  const [showChat, setShowChat] = useState(false);
 
   async function save(run: () => Promise<Task>, failure: string) {
     setBusy(true);
@@ -139,9 +141,17 @@ export function TaskDetails({
           </Section>
 
           {task.phone && task.kind && (
-            <Section title="השיחה עם מילו">
-              <Conversation taskId={task.id} />
-            </Section>
+            <section>
+              <button
+                type="button"
+                onClick={() => setShowChat(!showChat)}
+                className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink-900"
+              >
+                השיחה עם מילו
+                <LuChevronDown className={`h-4 w-4 transition-transform ${showChat ? "rotate-180" : ""}`} />
+              </button>
+              {showChat && <Conversation taskId={task.id} />}
+            </section>
           )}
 
           <Section title="היסטוריה">
@@ -180,22 +190,25 @@ export function TaskDetails({
             />
           </Field>
           <Field label="מקור">
-            <Tag tone={task.kind ? "warm" : "ink"}>{sourceLabel(task)}</Tag>
+            <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
           </Field>
           {(task.name || task.phone) && (
             <Field label="לקוח">
               <p className="text-sm text-ink-900">{task.name}</p>
               {task.phone && (
-                <a
-                  href={`https://wa.me/${task.phone.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  dir="ltr"
-                  className="inline-flex items-center gap-1 text-xs text-ink-700 underline underline-offset-2"
-                >
-                  <LuMessageCircle className="h-3.5 w-3.5" />
-                  {task.phone}
-                </a>
+                <>
+                  <p className="text-xs text-muted">
+                    <span dir="ltr">{task.phone}</span>
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="mt-2 w-full"
+                    onClick={() => window.open(`https://wa.me/${task.phone!.replace(/\D/g, "")}`, "_blank", "noopener")}
+                  >
+                    <LuMessageCircle className="h-4 w-4" />
+                    לדבר עם הלקוח בוואטסאפ
+                  </Button>
+                </>
               )}
             </Field>
           )}
@@ -254,7 +267,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function Conversation({ taskId }: { taskId: string }) {
   const [chat, setChat] = useState<TaskChatMessage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     taskConversation(taskId)
@@ -262,13 +274,20 @@ function Conversation({ taskId }: { taskId: string }) {
       .catch((exc) => setError(exc instanceof ApiError ? exc.message : "לא הצלחתי לטעון את השיחה."));
   }, [taskId]);
 
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "nearest" });
-  }, [chat]);
-
   if (error) return <p className="mt-3 text-sm text-blocked">{error}</p>;
   if (!chat) return <p className="mt-3 text-sm text-muted">טוען את השיחה…</p>;
   if (!chat.length) return <p className="mt-3 text-sm text-muted">אין הודעות שמורות לשיחה הזו.</p>;
+
+  return <ChatBubbles chat={chat} />;
+}
+
+/** WhatsApp-style bubbles — here, and in "שאל את מילו" when he shows a conversation. */
+export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
+  const bottom = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "nearest" });
+  }, [chat]);
 
   return (
     <div className="mt-3 max-h-[480px] space-y-2 overflow-y-auto rounded-xl bg-[#efeae2] p-4">
