@@ -215,9 +215,11 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
       onClick={onOpen}
-      className={`w-full cursor-grab rounded-xl border border-line bg-white p-3 text-right shadow-sm ${
-        { claim: "border-s-4 border-s-claim", milo: "border-s-4 border-s-milo", ink: "" }[sourceTone(task)]
-      } transition-colors hover:border-ink-300 active:cursor-grabbing`}
+      className={`w-full cursor-grab rounded-xl border p-3 text-right shadow-sm ${
+        { claim: "border-claim bg-claim/15", milo: "border-milo bg-milo/15", ink: "border-line bg-white hover:border-ink-300" }[
+          sourceTone(task)
+        ]
+      } transition-colors active:cursor-grabbing`}
     >
       <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
       {(task.name || task.phone) && (
