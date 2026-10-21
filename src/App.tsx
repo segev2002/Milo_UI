@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { LuMenu } from "react-icons/lu";
 import { SiGmail, SiGooglecalendar } from "react-icons/si";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
 import { useMilo } from "./hooks/useMilo";
 import type { Health, Identity, TurnRequest } from "./types";
@@ -23,7 +24,9 @@ const TITLES: Record<View, { title: string; hint: string }> = {
 };
 
 export default function App() {
-  const [view, setView] = useState<View>("tasks");
+  //: The page is the first part of the path: /tasks, /chat …
+  const navigate = useNavigate();
+  const view = (useLocation().pathname.split("/")[1] || "tasks") as View;
   const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<Identity | null>(null);
   //: Until the cookie has been checked, showing either the console or the
@@ -57,15 +60,15 @@ export default function App() {
   const signOut = async () => {
     await logout().catch(() => null);
     setMe(null);
-    setView("tasks");
+    navigate("/tasks");
   };
 
   const run = (prompt: string, request: TurnRequest = {}) => {
-    setView("chat");
+    navigate("/chat");
     void ask(prompt, request);
   };
 
-  const head = TITLES[view];
+  const head = TITLES[view] ?? TITLES.tasks;
 
   if (checking) return <div className="h-screen bg-ink-900" />;
   if (!me)
@@ -84,7 +87,7 @@ export default function App() {
       <Sidebar
         view={view}
         onChange={(next) => {
-          setView(next);
+          navigate(`/${next}`);
           setMenuOpen(false);
         }}
         health={health}
@@ -144,18 +147,24 @@ export default function App() {
               : "min-h-0 flex-1 overflow-y-auto px-4 pb-10 md:px-8"
           }
         >
-          {view === "chat" && (
-            <Chat
-              messages={messages}
-              busy={busy}
-              onAsk={(prompt, request) => void ask(prompt, request)}
-              onRestart={reset}
+          <Routes>
+            <Route
+              path="/chat"
+              element={
+                <Chat
+                  messages={messages}
+                  busy={busy}
+                  onAsk={(prompt, request) => void ask(prompt, request)}
+                  onRestart={reset}
+                />
+              }
             />
-          )}
-          {view === "playbook" && <Playbook busy={busy} onRun={run} />}
-          {view === "tasks" && <Tasks me={me} />}
-          {view === "users" && me.is_admin && <Users me={me} />}
-          {view === "activity" && me.is_admin && <UserActivity />}
+            <Route path="/playbook" element={<Playbook busy={busy} onRun={run} />} />
+            <Route path="/tasks" element={<Tasks me={me} />} />
+            <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
+            <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
+            <Route path="*" element={<Navigate to="/tasks" replace />} />
+          </Routes>
         </div>
       </main>
     </div>

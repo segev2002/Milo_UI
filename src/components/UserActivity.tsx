@@ -49,21 +49,21 @@ export function UserActivity() {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3 text-xs text-muted">
-        <label className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-6 border-b border-line px-5 py-3 text-xs text-muted">
+        <label className="flex items-center gap-3">
           משתמש
           <Select
             value={email}
             onChange={setEmail}
             options={[{ value: "", label: "כולם" }, ...[...names].map(([address, name]) => ({ value: address, label: name }))]}
-            className="w-44 py-1.5 text-xs"
+            className="w-80 py-1.5 text-xs"
           />
         </label>
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-3">
           מתאריך
           <DateField value={from} onChange={setFrom} className="w-48" />
         </label>
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-3">
           עד תאריך
           <DateField value={to} onChange={setTo} className="w-48" />
         </label>

@@ -3,6 +3,7 @@ import type { ChatMessage, TurnRequest } from "../types";
 import { intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
 import { ClientDossierView } from "./ClientDossier";
+import { ChatBubbles } from "./TaskDetails";
 import { Button, Card, Tag, Typing } from "./ui";
 import { LuSendHorizontal } from "react-icons/lu";
 
@@ -125,6 +126,8 @@ function Bubble({ message }: { message: ChatMessage }) {
                 the fallback for intents that have no typed payload yet. */}
             {message.data?.kind === "client_dossier" ? (
               <ClientDossierView dossier={message.data} />
+            ) : message.data?.kind === "whatsapp_conversation" && message.data.messages.length ? (
+              <ChatBubbles chat={message.data.messages} />
             ) : (
               message.report && <ReportView report={message.report} />
             )}

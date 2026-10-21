@@ -9,6 +9,8 @@ export interface ScenarioMeta {
   needsClient: boolean;
   prompt: string;
   audience: "sigal" | "client";
+  /** Asks for the client's phone, sent with the prompt — not a client reference. */
+  phoneInput?: boolean;
 }
 
 /** Mirrors agent-spec.md's ten scenarios plus the conversational extras. */
@@ -34,56 +36,6 @@ export const SCENARIOS: ScenarioMeta[] = [
     audience: "sigal",
   },
   {
-    intent: "discount_check",
-    scenario: 3,
-    name: "בדיקת הנחות",
-    what: "כל פוליסה פעילה נבדקת אצל המבטח שלה. 'אין הנחה' ו'לא הצלחתי לברר' נשארות תשובות שונות.",
-    cadence: "לפי בקשה",
-    needsClient: true,
-    prompt: "בדוק הנחות בפוליסות שלו",
-    audience: "sigal",
-  },
-  {
-    intent: "reverify_insurance_file",
-    scenario: 4,
-    name: "בדיקת תיק ביטוחי",
-    what: "הר הביטוח + המסלקה, בשלבים. עוצר לחלוטין עד לחתימה אמיתית.",
-    cadence: "המשך כל שעה",
-    needsClient: true,
-    prompt: "בדיקת תיק ביטוחי שלה",
-    audience: "sigal",
-  },
-  {
-    intent: "reimbursement_documents",
-    scenario: 5,
-    name: "מסמכים להחזר",
-    what: "בדיוק המסמכים שסוג הטיפול דורש, ועוד אישור הבנק. שום דבר לא רלוונטי.",
-    cadence: "לפי בקשה",
-    needsClient: false,
-    prompt: "אילו מסמכים נדרשים להחזר על ניתוח?",
-    audience: "sigal",
-  },
-  {
-    intent: "life_insurance_milestone",
-    scenario: 6,
-    name: "ביטוח חיים, 3 שנים",
-    what: "פוליסות שמגיעות לשלוש שנים — פעם אחת לכל אבן דרך, לא פעם ביום.",
-    cadence: "יומי",
-    needsClient: false,
-    prompt: "אילו פוליסות ביטוח חיים מגיעות לבדיקה?",
-    audience: "sigal",
-  },
-  {
-    intent: "tax_certificates",
-    scenario: 7,
-    name: "אישורי מס",
-    what: "אישור לכל מוצר וגוף מנהל, ואת אלה שלא הצליח להפיק עם הסיבה.",
-    cadence: "לפי בקשה",
-    needsClient: true,
-    prompt: "הפק את אישורי המס שלו",
-    audience: "sigal",
-  },
-  {
     intent: "inactive_clients",
     scenario: 8,
     name: "לקוחות לא פעילים",
@@ -91,26 +43,6 @@ export const SCENARIOS: ScenarioMeta[] = [
     cadence: "שבועי",
     needsClient: false,
     prompt: "אילו לקוחות לא פעילים?",
-    audience: "sigal",
-  },
-  {
-    intent: "daily_digest",
-    scenario: 9,
-    name: "סיכום משימות יומי",
-    what: "משימות פתוחות לפי עדיפות, לכל אחת שורת הסבר למקומה בתור.",
-    cadence: "07:00 יומי",
-    needsClient: false,
-    prompt: "המשימות שלי להיום",
-    audience: "sigal",
-  },
-  {
-    intent: "client_activity_log",
-    scenario: 10,
-    name: "יומן פעולות לקוח",
-    what: "מה מילו כתב בכרטיס ה-CRM של הלקוח — צד הקריאה של יומן הפעולות.",
-    cadence: "לפי בקשה",
-    needsClient: true,
-    prompt: "הצג לי את יומן הפעולות",
     audience: "sigal",
   },
   {
@@ -134,14 +66,25 @@ export const SCENARIOS: ScenarioMeta[] = [
     audience: "sigal",
   },
   {
-    intent: "appointment_booking",
+    intent: "whatsapp_conversation",
     scenario: null,
-    name: "פגישות",
-    what: "בודק את היומן האמיתי ומציע רק שעות שפנויות באמת. מעולם לא אומר שיש שעה פנויה בלי לבדוק.",
+    name: "שיחת וואטסאפ",
+    what: "השיחה של מילו עם מספר טלפון, מתוך יומן הוואטסאפ.",
     cadence: "לפי בקשה",
     needsClient: true,
-    prompt: "קבע לה פגישה לבדיקת פוליסה",
-    audience: "client",
+    phoneInput: true,
+    prompt: "הראה לי את השיחה עם",
+    audience: "sigal",
+  },
+  {
+    intent: "open_tasks",
+    scenario: null,
+    name: "משימות פתוחות",
+    what: "כל המשימות שעוד לא בוצעו, לפי עמודה: חדשות, תביעות, בתהליך.",
+    cadence: "לפי בקשה",
+    needsClient: false,
+    prompt: "מה המשימות הפתוחות?",
+    audience: "sigal",
   },
 ];
 
