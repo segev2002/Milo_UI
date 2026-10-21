@@ -106,7 +106,7 @@ export function Button({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "ghost" | "warm" | "danger";
+  variant?: "primary" | "ghost" | "warm" | "danger" | "claim" | "task";
   size?: "sm" | "md";
   disabled?: boolean;
   type?: "button" | "submit";
@@ -117,6 +117,8 @@ export function Button({
     warm: "bg-champagne text-ink-900 hover:bg-champagne-deep border border-champagne-deep",
     ghost: "border border-line bg-white text-ink-900 hover:bg-paper",
     danger: "border border-[#f3d3d0] bg-white text-blocked hover:bg-[#fbeceb]",
+    claim: "border border-claim bg-claim/15 text-claim hover:bg-claim/25",
+    task: "border border-ink-900 bg-white text-ink-900 hover:bg-paper",
   };
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm" };
   return (

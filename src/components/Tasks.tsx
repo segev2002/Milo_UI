@@ -82,11 +82,11 @@ export function Tasks({ me }: { me: Identity }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setCreating("task")}>
+        <Button variant="task" onClick={() => setCreating("task")}>
           <LuPlus className="h-4 w-4" />
           משימה חדשה
         </Button>
-        <Button variant="ghost" onClick={() => setCreating("claim")}>
+        <Button variant="claim" onClick={() => setCreating("claim")}>
           <LuPlus className="h-4 w-4" />
           תביעה חדשה
         </Button>
@@ -98,6 +98,21 @@ export function Tasks({ me }: { me: Identity }) {
         >
           המשימות שלי
         </button>
+        {/* What the card colors mean. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-milo bg-milo/15" />
+            מילו פתח את המשימה מהוואטסאפ
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-claim bg-claim/15" />
+            תביעה
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-ink-900 bg-white" />
+            משימה שנפתחה בקונסולה
+          </span>
+        </div>
         <button
           onClick={() => void refresh()}
           title="רענון"
@@ -216,7 +231,7 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
       onClick={onOpen}
       className={`w-full cursor-grab rounded-xl border p-3 text-right shadow-sm ${
-        { claim: "border-claim bg-claim/15", milo: "border-milo bg-milo/15", ink: "border-line bg-white hover:border-ink-300" }[
+        { claim: "border-claim bg-claim/15", milo: "border-milo bg-milo/15", ink: "border-ink-900 bg-white" }[
           sourceTone(task)
         ]
       } transition-colors active:cursor-grabbing`}
