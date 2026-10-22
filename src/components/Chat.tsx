@@ -3,6 +3,7 @@ import type { ChatMessage, TurnRequest } from "../types";
 import { intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
 import { ClientDossierView } from "./ClientDossier";
+import { ChatBubbles } from "./TaskDetails";
 import { Button, Card, Tag, Typing } from "./ui";
 import { LuSendHorizontal } from "react-icons/lu";
 
@@ -35,8 +36,7 @@ export function Chat({
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-5 py-3.5">
         <div>
-          <h2 className="font-display text-[15px] font-semibold text-ink-900">שאל את מילו</h2>
-          <p className="mt-0.5 text-xs text-muted">
+          <p className="text-xs text-muted">
             אותו גרף, אותן הרשאות כמו בוואטסאפ — השיחה הזו היא עוד ערוץ.
           </p>
         </div>
@@ -90,15 +90,7 @@ function Bubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className="fade-in flex gap-3">
-      <span
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-display text-sm font-semibold ${
-          message.demo
-            ? "border border-dashed border-champagne-deep bg-white text-champagne-deep"
-            : "bg-champagne text-ink-900"
-        }`}
-      >
-        M
-      </span>
+      <img src="/milo.png" alt="מילו" className="mt-0.5 h-8 w-8 shrink-0 rounded-xl bg-champagne object-cover" />
       <div className="min-w-0 flex-1 space-y-3">
         {message.pending ? (
           <div className="inline-flex items-center gap-2 rounded-2xl rounded-ss-md border border-line bg-white px-4 py-3 text-xs text-muted">
@@ -125,6 +117,8 @@ function Bubble({ message }: { message: ChatMessage }) {
                 the fallback for intents that have no typed payload yet. */}
             {message.data?.kind === "client_dossier" ? (
               <ClientDossierView dossier={message.data} />
+            ) : message.data?.kind === "whatsapp_conversation" && message.data.messages.length ? (
+              <ChatBubbles chat={message.data.messages} />
             ) : (
               message.report && <ReportView report={message.report} />
             )}

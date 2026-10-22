@@ -80,11 +80,13 @@ export function StatusPill({
   );
 }
 
-export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warm" | "ink" }) {
+export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warm" | "ink" | "milo" | "claim" }) {
   const tones = {
     neutral: "border-line bg-paper text-muted",
     warm: "border-champagne-deep bg-champagne-soft text-[#7a5a1a]",
     ink: "border-ink-100 bg-ink-50 text-ink-700",
+    milo: "border-milo/30 bg-milo/10 text-milo",
+    claim: "border-claim/30 bg-claim/10 text-claim",
   };
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
@@ -104,7 +106,7 @@ export function Button({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "ghost" | "warm" | "danger";
+  variant?: "primary" | "ghost" | "warm" | "danger" | "claim" | "task";
   size?: "sm" | "md";
   disabled?: boolean;
   type?: "button" | "submit";
@@ -115,6 +117,8 @@ export function Button({
     warm: "bg-champagne text-ink-900 hover:bg-champagne-deep border border-champagne-deep",
     ghost: "border border-line bg-white text-ink-900 hover:bg-paper",
     danger: "border border-[#f3d3d0] bg-white text-blocked hover:bg-[#fbeceb]",
+    claim: "border border-claim bg-claim/15 text-claim hover:bg-claim/25",
+    task: "border border-ink-900 bg-white text-ink-900 hover:bg-paper",
   };
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm" };
   return (

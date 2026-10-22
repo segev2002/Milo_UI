@@ -35,9 +35,7 @@ export function Sidebar({
     <aside className={`flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90 ${className}`}>
       <div className="px-6 pb-6 pt-7">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-champagne font-display text-lg font-semibold text-ink-900">
-            M
-          </span>
+          <img src="/milo.png" alt="מילו" className="h-9 w-9 rounded-xl bg-champagne object-cover" />
           <div>
             <p className="font-display text-[17px] font-semibold leading-none text-champagne">
               Milo

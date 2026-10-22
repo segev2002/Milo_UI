@@ -19,6 +19,14 @@ export const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: "done", label: "בוצע" },
 ];
 
+/** The board: claims are new tasks of the claims team, in a column of their own. */
+const BOARD: { status: TaskStatus; label: string; claims?: boolean }[] = [
+  { status: "new", label: "משימות חדשות", claims: false },
+  { status: "new", label: "תביעות", claims: true },
+  { status: "in_progress", label: "בתהליך" },
+  { status: "done", label: "בוצע" },
+];
+
 const TEAM_LABEL = { claims: "תביעות", operations: "תפעול" } as const;
 
 /** How often the board reloads on its own, so Milo's new tasks appear. */
@@ -31,8 +39,8 @@ export function Tasks({ me }: { me: Identity }) {
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
+  const [creating, setCreating] = useState<"task" | "claim" | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -74,9 +82,13 @@ export function Tasks({ me }: { me: Identity }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setCreating(true)}>
+        <Button variant="task" onClick={() => setCreating("task")}>
           <LuPlus className="h-4 w-4" />
           משימה חדשה
+        </Button>
+        <Button variant="claim" onClick={() => setCreating("claim")}>
+          <LuPlus className="h-4 w-4" />
+          תביעה חדשה
         </Button>
         <button
           onClick={() => setMine(!mine)}
@@ -86,6 +98,21 @@ export function Tasks({ me }: { me: Identity }) {
         >
           המשימות שלי
         </button>
+        {/* What the card colors mean. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-milo bg-milo/15" />
+            מילו פתח את המשימה מהוואטסאפ
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-claim bg-claim/15" />
+            תביעה
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-ink-900 bg-white" />
+            משימה שנפתחה בקונסולה
+          </span>
+        </div>
         <button
           onClick={() => void refresh()}
           title="רענון"
@@ -106,15 +133,17 @@ export function Tasks({ me }: { me: Identity }) {
         <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
       ) : (
         // On a phone the columns stack: new on top, then in progress, then done.
-        <div className="grid gap-4 md:grid-cols-3">
-          {COLUMNS.map((column) => {
-            const cards = shown.filter((t) => t.status === column.status);
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {BOARD.map((column) => {
+            const cards = shown.filter(
+              (t) => t.status === column.status && (column.claims === undefined || (t.team === "claims") === column.claims),
+            );
             return (
               <section
-                key={column.status}
+                key={column.label}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setDragOver(column.status);
+                  setDragOver(column.label);
                 }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={(e) => {
@@ -122,7 +151,7 @@ export function Tasks({ me }: { me: Identity }) {
                   void move(e.dataTransfer.getData("text/plain"), column.status);
                 }}
                 className={`flex min-h-[120px] flex-col rounded-2xl border p-3 transition-colors md:min-h-[200px] ${
-                  dragOver === column.status ? "border-ink-300 bg-ink-50" : "border-line bg-paper"
+                  dragOver === column.label ? "border-ink-300 bg-ink-50" : "border-line bg-paper"
                 }`}
               >
                 <h2 className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold text-ink-900">
@@ -156,13 +185,14 @@ export function Tasks({ me }: { me: Identity }) {
       )}
       {creating && (
         <NewTask
+          claim={creating === "claim"}
           people={people}
           onCreated={(task, warning) => {
             setTasks((prev) => [task, ...(prev ?? [])]);
-            setCreating(false);
+            setCreating(null);
             setError(warning);
           }}
-          onClose={() => setCreating(false)}
+          onClose={() => setCreating(null)}
         />
       )}
     </div>
@@ -181,6 +211,12 @@ export function sourceLabel(task: Task): string {
   return "ידני";
 }
 
+/** Claim color for claims, ultra violet for what Milo opened. */
+export function sourceTone(task: Task): "claim" | "milo" | "ink" {
+  if (task.team === "claims") return "claim";
+  return task.kind ? "milo" : "ink";
+}
+
 export function personName(people: Person[], email: string | null): string {
   if (!email) return "";
   return people.find((p) => p.email === email)?.display_name || email.split("@")[0];
@@ -194,14 +230,18 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
       onClick={onOpen}
-      className="w-full cursor-grab rounded-xl border border-line bg-white p-3 text-right shadow-sm transition-colors hover:border-ink-300 active:cursor-grabbing"
+      className={`w-full cursor-grab rounded-xl border p-3 text-right shadow-sm ${
+        { claim: "border-claim bg-claim/15", milo: "border-milo bg-milo/15", ink: "border-ink-900 bg-white" }[
+          sourceTone(task)
+        ]
+      } transition-colors active:cursor-grabbing`}
     >
       <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
       {(task.name || task.phone) && (
         <p className="mt-1 truncate text-xs text-muted">{task.name || <span dir="ltr">{task.phone}</span>}</p>
       )}
       <div className="mt-2 flex items-center gap-1.5">
-        <Tag tone={task.kind ? "warm" : "ink"}>{sourceLabel(task)}</Tag>
+        <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
         {fileCount > 0 && <Tag>📎 {fileCount}</Tag>}
         <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
@@ -218,10 +258,13 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
 }
 
 function NewTask({
+  claim,
   people,
   onCreated,
   onClose,
 }: {
+  /** "תביעה חדשה": the same form, filed for the claims team. */
+  claim: boolean;
   people: Person[];
   /** `warning`: the task was created, but some files did not upload. */
   onCreated: (task: Task, warning: string | null) => void;
@@ -240,7 +283,7 @@ function NewTask({
     try {
       // Empty fields are left out, not sent as "".
       const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
-      let task = await createTask(fields as typeof form);
+      let task = await createTask({ ...(fields as typeof form), ...(claim && { team: "claims" as const }) });
       // The task exists now, so a file that fails does not undo it: it is named instead.
       const failed: string[] = [];
       for (const file of files) {
@@ -260,7 +303,7 @@ function NewTask({
   return (
     <Modal onClose={onClose} size="lg">
       <form onSubmit={(e) => void submit(e)} className="space-y-5 p-5 sm:p-8">
-        <h2 className="font-display text-2xl font-semibold text-ink-900">משימה חדשה</h2>
+        <h2 className="font-display text-2xl font-semibold text-ink-900">{claim ? "תביעה חדשה" : "משימה חדשה"}</h2>
         <Labelled label="כותרת" hint="במשפט אחד: מה צריך לעשות">
           <input required autoFocus value={form.title} onChange={set("title")} className={`${FIELD} text-base`} />
         </Labelled>
