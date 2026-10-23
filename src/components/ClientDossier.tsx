@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LuChevronDown } from "react-icons/lu";
-import type { ClientDossier, DossierAmount, DossierPolicy, DossierProcess } from "../types";
+import type { ClientDossier, DossierAmount, DossierPolicy } from "../types";
 import { StatusPill, Tag } from "./ui";
 
 /* Formatting lives here, not in the backend. The API sends ISO dates and raw
@@ -54,53 +54,6 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
       </h4>
       {children}
     </section>
-  );
-}
-
-function Processes({ items }: { items: DossierProcess[] }) {
-  const [expanded, setExpanded] = useState(false);
-  // Long histories are the norm — show the recent few and let her ask for more.
-  const shown = expanded ? items : items.slice(0, 4);
-  const open = items.filter((p) => !p.is_closed).length;
-
-  return (
-    <Block title={`תהליכים · ${items.length}${open ? ` · ${open} פתוחים` : ""}`}>
-      <ol className="space-y-0">
-        {shown.map((p, i) => (
-          <li key={p.id ?? i} className="flex gap-3 py-2">
-            <div className="flex flex-col items-center pt-1">
-              <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                  p.is_closed ? "bg-ink-300" : "bg-ink-900"
-                }`}
-              />
-              {i < shown.length - 1 && <span className="mt-1 w-px flex-1 bg-line" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-sm font-medium text-ink-900">{p.type ?? "תהליך"}</span>
-                {p.company && <span className="text-[13px] text-muted">· {p.company}</span>}
-              </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                <span>{formatDate(p.opened_on)}</span>
-                {p.status && <span>· {p.status}</span>}
-                {p.assignee && <span>· {p.assignee}</span>}
-              </div>
-              {p.notes && <p className="mt-1 text-[13px] leading-relaxed text-body">{p.notes}</p>}
-            </div>
-          </li>
-        ))}
-      </ol>
-      {items.length > 4 && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="text-[13px] font-medium text-ink-700 underline underline-offset-2"
-        >
-          {expanded ? "הצג פחות" : `הצג את כל ${items.length} התהליכים`}
-        </button>
-      )}
-    </Block>
   );
 }
 
@@ -197,7 +150,7 @@ function PolicyGroup({ group, policies }: { group: string; policies: DossierPoli
 }
 
 export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
-  const { client, amounts, processes, related, policies } = dossier;
+  const { client, amounts, related, policies } = dossier;
   const premium = headlinePremium(amounts);
   const years = age(client.date_of_birth);
   // Groups in the order Surense's own list puts them.
@@ -242,8 +195,6 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
             </div>
           </Block>
         )}
-
-        {processes.length > 0 && <Processes items={processes} />}
 
         {related.length > 0 && (
           <Block title="קשורים">
