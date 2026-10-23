@@ -1,5 +1,5 @@
 import type { Report } from "../types";
-import { StatusPill } from "./ui";
+import { InsurerName, StatusPill } from "./ui";
 
 export function ReportView({ report }: { report: Report }) {
   return (
@@ -56,7 +56,7 @@ export function ReportView({ report }: { report: Report }) {
                                 c === 0 ? "font-medium text-ink-900" : "text-body"
                               }`}
                             >
-                              {cell || "—"}
+                              {cell ? <InsurerName name={cell} /> : "—"}
                             </td>
                           ))}
                         </tr>

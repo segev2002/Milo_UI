@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, addUser, listUsers, removeUser } from "../lib/api";
+import { ApiError, addUser, listUsers, removeUser, renameUser } from "../lib/api";
 import type { AllowedUser, Identity } from "../types";
 import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
 
@@ -18,6 +18,7 @@ import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
 export function Users({ me }: { me: Identity }) {
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +42,9 @@ export function Users({ me }: { me: Identity }) {
     setBusy(true);
     setError(null);
     try {
-      await addUser(address, isAdmin);
+      await addUser(address, isAdmin, name.trim());
       setEmail("");
+      setName("");
       setIsAdmin(false);
       await refresh();
     } catch (exc) {
@@ -66,6 +68,17 @@ export function Users({ me }: { me: Identity }) {
     }
   }
 
+  /** Saved when the field is left; tasks and their history show this name. */
+  async function rename(address: string, value: string) {
+    setError(null);
+    try {
+      const row = await renameUser(address, value.trim());
+      setUsers((prev) => prev.map((user) => (user.email === address ? { ...user, ...row } : user)));
+    } catch (exc) {
+      setError(exc instanceof ApiError ? exc.message : "שמירת השם נכשלה.");
+    }
+  }
+
   const active = users.filter((user) => user.active);
 
   return (
@@ -76,6 +89,19 @@ export function Users({ me }: { me: Identity }) {
           hint="הכניסו כתובת Gmail. מי שתוסיפו יוכל להיכנס עם Google, בלי סיסמה ובלי הזמנה."
         />
         <div className="flex flex-wrap items-end gap-3 px-5 py-5">
+          <div className="min-w-[200px] flex-1">
+            <label htmlFor="new-user-name" className="block text-xs font-medium text-ink-900">
+              שם מלא
+            </label>
+            <input
+              id="new-user-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && void add()}
+              placeholder="כפי שיופיע במשימות"
+              className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
+            />
+          </div>
           <div className="min-w-[260px] flex-1">
             <label htmlFor="new-user" className="block text-xs font-medium text-ink-900">
               כתובת אימייל
@@ -122,7 +148,20 @@ export function Users({ me }: { me: Identity }) {
             {active.map((user) => (
               <li key={user.email} className="flex items-center gap-4 px-5 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink-900" dir="ltr">
+                  {/* The name edits in place; the key resets it when the saved name changes. */}
+                  <input
+                    key={user.display_name ?? ""}
+                    defaultValue={user.display_name ?? ""}
+                    placeholder="הוסיפו שם"
+                    aria-label={`השם של ${user.email}`}
+                    onBlur={(event) =>
+                      event.target.value.trim() !== (user.display_name ?? "") &&
+                      void rename(user.email, event.target.value)
+                    }
+                    onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+                    className="-mx-2 w-full max-w-xs rounded-lg border border-transparent px-2 py-0.5 text-sm font-medium text-ink-900 outline-none placeholder:font-normal placeholder:text-muted/70 hover:border-line focus:border-ink-300"
+                  />
+                  <p className="truncate text-right text-xs text-muted" dir="ltr">
                     {user.email}
                   </p>
                   <p className="mt-0.5 text-xs text-muted">

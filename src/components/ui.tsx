@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DayPicker } from "react-day-picker";
 import { he } from "react-day-picker/locale";
 import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
+import { insurerLogo } from "../lib/insurers";
 import type { ReportStatus } from "../types";
 
 export function Card({
@@ -89,10 +90,17 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
     claim: "border-claim/30 bg-claim/10 text-claim",
   };
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
       {children}
     </span>
   );
+}
+
+/** An insurer's logo (which carries its name) when it is one we know; otherwise the name. */
+export function InsurerName({ name, className = "" }: { name: string; className?: string }) {
+  const logo = insurerLogo(name);
+  if (!logo) return <span className={className}>{name}</span>;
+  return <img src={logo} alt={name} title={name} className="h-7 w-auto max-w-[110px] shrink-0 object-contain" />;
 }
 
 export function Button({
@@ -126,7 +134,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-600 disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-600 disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>

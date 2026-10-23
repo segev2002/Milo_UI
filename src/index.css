@@ -2,7 +2,8 @@
 
 @theme {
   --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Frank Ruhl Libre", Georgia, serif;
+  /* Headings use the same face as the menu. */
+  --font-display: var(--font-sans);
 
   --color-ink-950: #032b20;
   --color-ink-900: #064e3b;

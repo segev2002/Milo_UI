@@ -13,13 +13,13 @@ export function Playbook({
   onRun: (prompt: string, request: TurnRequest) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="@container space-y-5">
       <Card>
         <CardHead
           title="מה מילו יודע לעשות"
           hint="מה שמילו יודע לעשות היום. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
         />
-        <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 px-5 py-5 @xl:grid-cols-2 @[56rem]:grid-cols-3">
           {SCENARIOS.map((scenario) => (
             <ScenarioCard key={scenario.intent} scenario={scenario} busy={busy} onRun={onRun} />
           ))}

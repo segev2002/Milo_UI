@@ -69,7 +69,8 @@ export function Chat({
             />
           <Button onClick={submit} disabled={busy || !draft.trim()}>
             <LuSendHorizontal className="h-4 w-4 rotate-180" />
-            שלח
+            {/* Icon only on a phone, where the box needs the room. */}
+            <span className="sr-only sm:not-sr-only">שלח</span>
           </Button>
         </div>
       </div>
