@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LuChevronDown } from "react-icons/lu";
-import type { ClientDossier, DossierAmount, DossierPolicy } from "../types";
-import { StatusPill, Tag } from "./ui";
+import type { ClientDossier, DossierAmount, DossierPolicy, DossierPolicyCover } from "../types";
+import { InsurerName, StatusPill, Tag } from "./ui";
 
 /* Formatting lives here, not in the backend. The API sends ISO dates and raw
    numbers; how they read is this console's decision. */
@@ -35,15 +35,9 @@ function headlinePremium(amounts: DossierAmount[]): DossierAmount | null {
   return amounts.find((a) => a.label === "פרמיה חודשית" && a.value > 0) ?? null;
 }
 
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="text-[13px] text-muted">{label}</span>
-      <span className={`text-sm ${muted ? "text-muted" : "font-medium text-ink-900"}`}>
-        {value}
-      </span>
-    </div>
-  );
+/** A zero means "not set" in the CRM, not a cover worth ₪0. */
+function money(value: number): string {
+  return value ? ils.format(value) : "—";
 }
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
@@ -57,45 +51,48 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-/** One policy row, as in Surense: a button that opens its covers. */
-function PolicyRow({ policy }: { policy: DossierPolicy }) {
-  const [open, setOpen] = useState(false);
-  // Savings products carry an accumulation and often no premium; insurance the reverse.
-  const money = policy.premium
-    ? `${ils.format(policy.premium)}${policy.premium_frequency ? ` · ${policy.premium_frequency}` : ""}`
-    : policy.accumulation
-      ? `צבירה ${ils.format(policy.accumulation)}`
-      : "—";
+type Metric = "premium" | "accumulation";
+
+/** The columns of a policy's covers. Those marked `same` move above the table when every row agrees. */
+const COVER_COLUMNS: { head: string; cell: (c: DossierPolicyCover) => string; same?: (v: string) => string }[] = [
+  { head: "סוג כיסוי", cell: (c) => c.type ?? "—", same: (v) => `סוג כיסוי: ${v}` },
+  { head: "שם כיסוי", cell: (c) => c.name ?? "—" },
+  {
+    head: "מבוטח",
+    cell: (c) => `${c.insured ?? "—"}${c.insured_role ? ` (${c.insured_role})` : ""}`,
+    same: (v) => `מבוטח: ${v}`,
+  },
+  { head: "פרמיה", cell: (c) => money(c.premium) },
+  { head: "סכום ביטוח", cell: (c) => money(c.amount) },
+  { head: "תחילה", cell: (c) => formatDate(c.start), same: (v) => `תחילה ${v}` },
+  { head: "סיום", cell: (c) => formatDate(c.end), same: (v) => `סיום ${v}` },
+];
+
+function Covers({ policy }: { policy: DossierPolicy }) {
+  const shared = COVER_COLUMNS.filter((col) => {
+    if (!col.same || !policy.covers.length) return false;
+    const first = col.cell(policy.covers[0]);
+    return policy.covers.every((c) => col.cell(c) === first);
+  });
+  const columns = COVER_COLUMNS.filter((col) => !shared.includes(col));
+  const facts = [policy.policy_number ? `פוליסה ${policy.policy_number}` : ""];
+  for (const col of shared) {
+    const value = col.cell(policy.covers[0]);
+    if (value !== "—") facts.push(col.same!(value));
+  }
+  const shown = facts.filter(Boolean);
 
   return (
-    <li className="py-2">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={!policy.covers.length}
-        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-right"
-      >
-        <span className="text-sm font-medium text-ink-900">{policy.company ?? "—"}</span>
-        <span className="text-[13px] text-body">{policy.product}</span>
-        {policy.policy_number && (
-          <span className="text-xs text-muted" dir="ltr">
-            {policy.policy_number}
-          </span>
-        )}
-        <StatusPill status={policy.active ? "ok" : "empty"}>{policy.status || "—"}</StatusPill>
-        <span className="ms-auto text-sm text-ink-900">{money}</span>
-        {policy.covers.length > 0 && (
-          <LuChevronDown className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
-        )}
-      </button>
-      {open && (
-        <div className="mt-2 overflow-x-auto rounded-lg border border-line">
+    <div className="mb-2 mt-1 rounded-lg border border-line">
+      {shown.length > 0 && <p className="bg-paper px-3 py-1.5 text-xs text-muted">{shown.join(" · ")}</p>}
+      {policy.covers.length > 0 && (
+        <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
-            <thead className="bg-paper text-muted">
+            <thead className="text-muted">
               <tr>
-                {["סוג כיסוי", "שם כיסוי", "מבוטח", "פרמיה", "סכום ביטוח", "תחילה", "סיום"].map((h) => (
-                  <th key={h} className="px-2 py-1.5 font-medium">
-                    {h}
+                {columns.map((col) => (
+                  <th key={col.head} className="px-3 py-1.5 font-medium">
+                    {col.head}
                   </th>
                 ))}
               </tr>
@@ -103,45 +100,90 @@ function PolicyRow({ policy }: { policy: DossierPolicy }) {
             <tbody className="divide-y divide-line/60">
               {policy.covers.map((c, i) => (
                 <tr key={i} className="text-body">
-                  <td className="px-2 py-1.5">{c.type ?? "—"}</td>
-                  <td className="px-2 py-1.5">{c.name ?? "—"}</td>
-                  <td className="px-2 py-1.5">
-                    {c.insured ?? "—"}
-                    {c.insured_role ? ` (${c.insured_role})` : ""}
-                  </td>
-                  <td className="px-2 py-1.5">{ils.format(c.premium)}</td>
-                  <td className="px-2 py-1.5">{ils.format(c.amount)}</td>
-                  <td className="px-2 py-1.5">{formatDate(c.start)}</td>
-                  <td className="px-2 py-1.5">{formatDate(c.end)}</td>
+                  {columns.map((col) => (
+                    <td key={col.head} className="px-3 py-1.5">
+                      {col.cell(c)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+/** One policy row, as in Surense: a button that opens its number and covers. */
+function PolicyRow({ policy, metric }: { policy: DossierPolicy; metric: Metric }) {
+  const [open, setOpen] = useState(false);
+  const expandable = policy.covers.length > 0 || !!policy.policy_number;
+  // The group names the metric; a row only says so when it shows the other one.
+  const amount =
+    metric === "premium" && policy.premium
+      ? ils.format(policy.premium)
+      : policy.accumulation
+        ? `${metric === "premium" ? "צבירה " : ""}${ils.format(policy.accumulation)}`
+        : "—";
+
+  return (
+    <li className={policy.active ? "" : "opacity-60"}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={!expandable}
+        className="grid w-full grid-cols-[110px_minmax(0,1fr)_auto_7.5rem_1rem] items-center gap-3 py-2 text-right"
+      >
+        <InsurerName name={policy.company ?? "—"} className="truncate text-sm font-medium text-ink-900" />
+        <span className="truncate text-[13px] text-body">{policy.product}</span>
+        {/* Active is the norm, so only the exceptions carry a status. */}
+        <span>{!policy.active && <StatusPill status="empty">{policy.status || "לא פעיל"}</StatusPill>}</span>
+        <span className="text-end text-sm font-medium tabular-nums text-ink-900">{amount}</span>
+        {expandable && (
+          <LuChevronDown className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        )}
+      </button>
+      {open && <Covers policy={policy} />}
     </li>
   );
 }
 
-/** Policies grouped like Surense's products tab: "בריאות (3)", each group collapsible. */
+/** Policies grouped like Surense's products tab, each group with its total. */
 function PolicyGroup({ group, policies }: { group: string; policies: DossierPolicy[] }) {
   const [open, setOpen] = useState(true);
+  // Insurance is read by its premium, savings by what they have accumulated.
+  const metric: Metric = policies.some((p) => p.premium > 0) ? "premium" : "accumulation";
+  const active = policies.filter((p) => p.active);
+  const total = active.reduce((sum, p) => sum + p[metric], 0);
+  const monthly = active.every((p) => !p.premium || p.premium_frequency === "חודשית");
+  const unit = metric === "accumulation" ? "צבירה" : monthly ? "לחודש" : "פרמיה";
+  // Inactive policies sink to the bottom; otherwise Surense's order.
+  const sorted = [...policies].sort((a, b) => Number(b.active) - Number(a.active));
+
   return (
     <section>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-lg bg-paper px-3 py-2 text-right"
+        className="flex w-full items-center gap-3 rounded-lg bg-paper px-3 py-2 text-right"
       >
         <span className="text-sm font-semibold text-ink-900">
-          {group || "אחר"} ({policies.length})
+          {group || "אחר"} · {policies.length}
         </span>
-        <LuChevronDown className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        {total > 0 && (
+          <span className="ms-auto text-sm font-semibold tabular-nums text-ink-900">
+            {ils.format(total)} <span className="text-xs font-normal text-muted">{unit}</span>
+          </span>
+        )}
+        <LuChevronDown
+          className={`h-4 w-4 text-muted transition-transform ${total > 0 ? "" : "ms-auto"} ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
-        <ul className="divide-y divide-line/60 px-1">
-          {policies.map((p, i) => (
-            <PolicyRow key={`${p.policy_number}-${i}`} policy={p} />
+        <ul className="divide-y divide-line/60 px-3">
+          {sorted.map((p, i) => (
+            <PolicyRow key={`${p.policy_number}-${i}`} policy={p} metric={metric} />
           ))}
         </ul>
       )}
@@ -153,6 +195,7 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
   const { client, amounts, related, policies } = dossier;
   const premium = headlinePremium(amounts);
   const years = age(client.date_of_birth);
+  const inactive = (policies ?? []).filter((p) => !p.active).length;
   // Groups in the order Surense's own list puts them.
   const groups = new Map<string, DossierPolicy[]>();
   for (const p of policies ?? []) groups.set(p.group, [...(groups.get(p.group) ?? []), p]);
@@ -165,7 +208,24 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
           <p className="mt-0.5 text-xs text-muted">
             {client.id_number ? `ת.ז ${client.id_number}` : "אין ת.ז בתיק"}
             {years !== null && ` · בן/בת ${years}`}
+            {client.last_action_at && ` · פעילות אחרונה ${formatDate(client.last_action_at)}`}
           </p>
+          {/* Contact sits with the name: only what the file has, each one a link. */}
+          {(client.phone || client.email || client.city) && (
+            <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-body">
+              {client.phone && (
+                <a href={`tel:${client.phone}`} dir="ltr" className="hover:underline">
+                  {client.phone}
+                </a>
+              )}
+              {client.email && (
+                <a href={`mailto:${client.email}`} dir="ltr" className="hover:underline">
+                  {client.email}
+                </a>
+              )}
+              {client.city && <span>{client.city}</span>}
+            </p>
+          )}
         </div>
         {premium && (
           <div className="text-end">
@@ -178,16 +238,8 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
       </div>
 
       <div className="space-y-5 px-4 py-4">
-        <Block title="פרטי קשר">
-          <div className="divide-y divide-line/60">
-            <Row label="טלפון" value={client.phone ?? "— לא בתיק —"} muted={!client.phone} />
-            <Row label="אימייל" value={client.email ?? "— לא בתיק —"} muted={!client.email} />
-            <Row label="עיר" value={client.city ?? "— לא בתיק —"} muted={!client.city} />
-          </div>
-        </Block>
-
         {policies && policies.length > 0 && (
-          <Block title={`פוליסות · ${policies.length}`}>
+          <Block title={`פוליסות · ${policies.length}${inactive ? ` · ${inactive} לא פעילות` : ""}`}>
             <div className="space-y-2">
               {[...groups].map(([group, items]) => (
                 <PolicyGroup key={group} group={group} policies={items} />

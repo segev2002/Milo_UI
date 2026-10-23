@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DayPicker } from "react-day-picker";
 import { he } from "react-day-picker/locale";
 import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
+import { insurerLogo } from "../lib/insurers";
 import type { ReportStatus } from "../types";
 
 export function Card({
@@ -93,6 +94,13 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
       {children}
     </span>
   );
+}
+
+/** An insurer's logo (which carries its name) when it is one we know; otherwise the name. */
+export function InsurerName({ name, className = "" }: { name: string; className?: string }) {
+  const logo = insurerLogo(name);
+  if (!logo) return <span className={className}>{name}</span>;
+  return <img src={logo} alt={name} title={name} className="h-7 w-auto max-w-[110px] shrink-0 object-contain" />;
 }
 
 export function Button({
