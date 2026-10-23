@@ -119,10 +119,17 @@ export async function listUsers(): Promise<AllowedUser[]> {
   return request<AllowedUser[]>("/auth/users");
 }
 
-export async function addUser(email: string, isAdmin: boolean): Promise<AllowedUser> {
+export async function addUser(email: string, isAdmin: boolean, displayName: string): Promise<AllowedUser> {
   return request<AllowedUser>("/auth/users", {
     method: "POST",
-    body: JSON.stringify({ email, is_admin: isAdmin }),
+    body: JSON.stringify({ email, is_admin: isAdmin, display_name: displayName || null }),
+  });
+}
+
+export async function renameUser(email: string, displayName: string): Promise<AllowedUser> {
+  return request<AllowedUser>(`/auth/users/${encodeURIComponent(email)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ display_name: displayName || null }),
   });
 }
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskStatus } from "../types";
 import { LuPaperclip, LuPlus, LuRefreshCw, LuX } from "react-icons/lu";
@@ -53,10 +54,13 @@ export function Tasks({ me }: { me: Identity }) {
 
   useEffect(() => {
     void refresh();
-    listPeople().then(setPeople).catch(() => setPeople([]));
+    listPeople()
+      // An admin from the server's settings has no saved name; their Google name stands in.
+      .then((list) => setPeople(list.map((p) => (p.email === me.email && !p.display_name ? { ...p, display_name: me.display_name } : p))))
+      .catch(() => setPeople([]));
     const timer = setInterval(() => void refresh(), REFRESH_MS);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, me.email, me.display_name]);
 
   /** A task changed — here or in its card. */
   const replace = (task: Task) =>
@@ -80,7 +84,8 @@ export function Tasks({ me }: { me: Identity }) {
   const open = tasks?.find((t) => t.id === openId) ?? null;
 
   return (
-    <div className="space-y-4">
+    // Columns follow the board's own width, so collapsing the sidebar makes room for more.
+    <div className="@container space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="task" onClick={() => setCreating("task")}>
           <LuPlus className="h-4 w-4" />
@@ -133,7 +138,7 @@ export function Tasks({ me }: { me: Identity }) {
         <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
       ) : (
         // On a phone the columns stack: new on top, then in progress, then done.
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 @md:grid-cols-2 @[60rem]:grid-cols-4">
           {BOARD.map((column) => {
             const cards = shown.filter(
               (t) => t.status === column.status && (column.claims === undefined || (t.team === "claims") === column.claims),
@@ -185,6 +190,7 @@ export function Tasks({ me }: { me: Identity }) {
       )}
       {creating && (
         <NewTask
+          me={me}
           claim={creating === "claim"}
           people={people}
           onCreated={(task, warning) => {
@@ -236,20 +242,26 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
         ]
       } transition-colors active:cursor-grabbing`}
     >
-      <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
+      <div className="flex items-start gap-2">
+        {/* What Milo opened carries his face, so it reads before the color does. */}
+        {task.kind && (
+          <img src="/milo.png" alt="מילו" title="מילו פתח מהוואטסאפ" className="h-6 w-6 shrink-0 rounded-md bg-champagne object-cover" />
+        )}
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
+      </div>
       {(task.name || task.phone) && (
         <p className="mt-1 truncate text-xs text-muted">{task.name || <span dir="ltr">{task.phone}</span>}</p>
       )}
-      <div className="mt-2 flex items-center gap-1.5">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
         {fileCount > 0 && <Tag>📎 {fileCount}</Tag>}
         <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
           <span
             title={assignee}
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-champagne"
+            className="max-w-[45%] truncate rounded-full bg-ink-900 px-2 py-0.5 text-[11px] font-semibold text-champagne"
           >
-            {assignee[0]}
+            {assignee}
           </span>
         )}
       </div>
@@ -258,11 +270,13 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
 }
 
 function NewTask({
+  me,
   claim,
   people,
   onCreated,
   onClose,
 }: {
+  me: Identity;
   /** "תביעה חדשה": the same form, filed for the claims team. */
   claim: boolean;
   people: Person[];
@@ -270,7 +284,8 @@ function NewTask({
   onCreated: (task: Task, warning: string | null) => void;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState({ title: "", description: "", name: "", phone: "", assignee: "" });
+  // Whoever opens the task owns it unless they pick someone else.
+  const [form, setForm] = useState({ title: "", description: "", name: "", phone: "", assignee: me.email });
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,6 +339,8 @@ function NewTask({
             onChange={(assignee) => setForm({ ...form, assignee })}
             options={[
               { value: "", label: "ללא שיוך" },
+              // The default is the signed-in user, so they are listed even before the people load.
+              ...(people.some((p) => p.email === me.email) ? [] : [{ value: me.email, label: me.display_name || me.email }]),
               ...people.map((p) => ({ value: p.email, label: p.display_name || p.email })),
             ]}
           />
@@ -391,7 +408,8 @@ function Labelled({ label, hint, children }: { label: string; hint?: string; chi
   );
 }
 
-/** A centred panel over a dimmed page. Escape or a click outside closes it. */
+/** A centred panel over a dimmed page. Escape or a click outside closes it.
+    Rendered on <body>, so scrolling inside it never moves the page behind. */
 export function Modal({
   children,
   onClose,
@@ -407,19 +425,39 @@ export function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // While open, the page behind is frozen: its scroll area stops scrolling, and a
+  // wheel or swipe on the dimmed backdrop goes nowhere.
+  const backdrop = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const roots = [...document.querySelectorAll<HTMLElement>("[data-scroll-root]")];
+    const before = roots.map((r) => r.style.overflow);
+    roots.forEach((r) => (r.style.overflow = "hidden"));
+    const el = backdrop.current;
+    const block = (e: Event) => e.target === el && e.preventDefault();
+    el?.addEventListener("wheel", block, { passive: false });
+    el?.addEventListener("touchmove", block, { passive: false });
+    return () => {
+      roots.forEach((r, i) => (r.style.overflow = before[i]));
+      el?.removeEventListener("wheel", block);
+      el?.removeEventListener("touchmove", block);
+    };
+  }, []);
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 sm:px-4 sm:py-10"
+      ref={backdrop}
+      className="fixed inset-0 z-50 flex items-center justify-center overscroll-none bg-ink-950/40 sm:p-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      {/* Full screen on a phone. */}
+      {/* Full screen on a phone. The panel scrolls inside itself; "xl" fills the screen's height. */}
       <div
-        className={`min-h-full w-full bg-white shadow-xl sm:min-h-0 sm:rounded-2xl ${
-          { md: "max-w-lg", lg: "max-w-4xl", xl: "max-w-5xl" }[size]
+        className={`h-full w-full overflow-y-auto overscroll-contain bg-white shadow-xl sm:max-h-full sm:rounded-2xl ${
+          { md: "sm:h-auto sm:max-w-lg", lg: "sm:h-auto sm:max-w-4xl", xl: "sm:max-w-7xl" }[size]
         }`}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -50,10 +50,10 @@ export function UserActivity() {
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-6 border-b border-line px-5 py-3 text-xs text-muted">
-        <label className="flex items-center gap-3">
+        <label className="flex w-full items-center gap-3 sm:w-auto">
           משתמש
-          {/* The width sits on a wrapper: the field's own w-full overrides a width class. */}
-          <div className="w-80">
+          {/* The width sits on a wrapper: the field's own w-full overrides a width class. Full width on a phone. */}
+          <div className="min-w-0 flex-1 sm:w-80 sm:flex-none">
             <Select
               value={email}
               onChange={setEmail}

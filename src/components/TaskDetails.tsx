@@ -68,7 +68,7 @@ export function TaskDetails({
 
   return (
     <Modal onClose={onClose} size="xl">
-      <div className="flex items-start gap-3 border-b border-line px-4 py-4 sm:px-6">
+      <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-white px-4 py-4 sm:px-6">
         <input
           value={title}
           placeholder={taskTitle(task)}
@@ -169,7 +169,7 @@ export function TaskDetails({
           </Section>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="space-y-4 md:sticky md:top-24 md:self-start">
           <Field label="סטטוס">
             <Select<TaskStatus>
               value={task.status}
