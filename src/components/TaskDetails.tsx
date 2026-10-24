@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuChevronDown, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuChevronDown, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
@@ -89,6 +89,17 @@ export function TaskDetails({
 
       <div className="grid gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
         <div className="min-w-0 space-y-6">
+          {task.link_url && (
+            <a
+              href={task.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-milo px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+            >
+              <LuExternalLink className="h-4 w-4" />
+              {task.link_label || "פתח קישור"}
+            </a>
+          )}
           {task.summary && (
             <Section title="הסיכום של מילו">
               <p className="text-sm leading-relaxed text-ink-900">{task.summary}</p>
@@ -242,6 +253,8 @@ function describe(event: Task["events"][number], people: Person[]): string {
       return event.text ? `פתח/ה מייל ב-Gmail: ${event.text}` : "פתח/ה מייל ב-Gmail";
     case "meeting":
       return `פתח/ה פגישה ביומן: ${event.text}`;
+    case "polywizz":
+      return event.text ?? "עדכון מ-PolyWizz";
   }
 }
 
