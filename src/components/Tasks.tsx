@@ -255,6 +255,7 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
         {fileCount > 0 && <Tag>📎 {fileCount}</Tag>}
+        {task.link_url && <Tag tone="milo">{task.link_label || "קישור"}</Tag>}
         <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
           <span
