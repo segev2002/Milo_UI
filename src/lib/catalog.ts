@@ -86,6 +86,17 @@ export const SCENARIOS: ScenarioMeta[] = [
     prompt: "מה המשימות הפתוחות?",
     audience: "sigal",
   },
+  {
+    intent: "create_client",
+    scenario: null,
+    name: "יצירת לקוח חדש",
+    what: "שולח ללקוח SMS עם קישור למילוי פרטים וחתימה ב-PolyWizz. כשכל המידע מחברות הביטוח יגיע – תיפתח משימה.",
+    cadence: "לפי בקשה",
+    needsClient: true,
+    phoneInput: true,
+    prompt: "צור לקוח חדש",
+    audience: "sigal",
+  },
 ];
 
 export const INTENT_LABELS: Record<string, string> = {

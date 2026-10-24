@@ -92,6 +92,9 @@ export interface Task {
   id: string;
   title: string | null;
   description: string | null;
+  /** One link the card opens — e.g. a new client's analysis sheet in Google Drive. */
+  link_url?: string | null;
+  link_label?: string | null;
   status: TaskStatus;
   kind: TaskKind | null;
   /** Set by the WhatsApp client menu: which team the task is for. */
@@ -105,7 +108,7 @@ export interface Task {
   /** Files console users attached; `key` opens via /agent/tasks/media. */
   files: { key: string; name: string; by: string; at: string }[];
   /** The card's history, oldest first. */
-  events: { type: "created" | "status" | "assignee" | "file" | "email" | "meeting"; text: string | null; by: string; at: string }[];
+  events: { type: "created" | "status" | "assignee" | "file" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
   assignee: string | null;
   created_by: string | null;
   created_at: string;
@@ -155,6 +158,7 @@ export type Intent =
   | "client_overview"
   | "whatsapp_conversation"
   | "open_tasks"
+  | "create_client"
   | "restart"
   | "help"
   | "unknown";
