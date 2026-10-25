@@ -97,6 +97,16 @@ export const SCENARIOS: ScenarioMeta[] = [
     prompt: "צור לקוח חדש",
     audience: "sigal",
   },
+  {
+    intent: "analyze_client",
+    scenario: null,
+    name: "ניתוח תיק",
+    what: "ניתוח תיק בגוגל שיטס ללקוח קיים, מנתוני PolyWizz. מילו מבקש אישור לפני שמתחיל (הפעולה עולה כסף), וכשהניתוח מוכן נפתחת משימה עם קישור.",
+    cadence: "לפי בקשה",
+    needsClient: true,
+    prompt: "ניתוח תיק",
+    audience: "sigal",
+  },
 ];
 
 export const INTENT_LABELS: Record<string, string> = {
