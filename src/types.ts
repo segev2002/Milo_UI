@@ -159,6 +159,7 @@ export type Intent =
   | "whatsapp_conversation"
   | "open_tasks"
   | "create_client"
+  | "analyze_client"
   | "restart"
   | "help"
   | "unknown";
