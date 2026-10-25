@@ -159,6 +159,7 @@ export type Intent =
   | "whatsapp_conversation"
   | "open_tasks"
   | "create_client"
+  | "analyze_client"
   | "restart"
   | "help"
   | "unknown";
@@ -297,7 +298,16 @@ export interface WhatsAppConversation {
   messages: TaskChatMessage[];
 }
 
-export type TurnData = ClientDossier | WhatsAppConversation;
+/** An action Milo waits for a user to approve, e.g. an expensive file analysis. */
+export interface Confirm {
+  kind: "confirm";
+  label: string;
+  prompt: string;
+  intent: Intent;
+  client_crm_id: string;
+}
+
+export type TurnData = ClientDossier | WhatsAppConversation | Confirm;
 
 /** One row of milo.console_activity — GET /agent/activity (admins only). */
 export interface ConsoleActivity {

@@ -47,7 +47,7 @@ export function Chat({
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-6">
         {messages.map((message) => (
-          <Bubble key={message.id} message={message} />
+          <Bubble key={message.id} message={message} busy={busy} onAsk={onAsk} />
         ))}
         <div ref={endRef} />
       </div>
@@ -78,7 +78,15 @@ export function Chat({
   );
 }
 
-function Bubble({ message }: { message: ChatMessage }) {
+function Bubble({
+  message,
+  busy,
+  onAsk,
+}: {
+  message: ChatMessage;
+  busy: boolean;
+  onAsk: (prompt: string, request?: TurnRequest) => void;
+}) {
   if (message.role === "sigal") {
     return (
       <div className="fade-in flex justify-end">
@@ -120,6 +128,19 @@ function Bubble({ message }: { message: ChatMessage }) {
               <ClientDossierView dossier={message.data} />
             ) : message.data?.kind === "whatsapp_conversation" && message.data.messages.length ? (
               <ChatBubbles chat={message.data.messages} />
+            ) : message.data?.kind === "confirm" ? (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  message.data?.kind === "confirm" &&
+                  onAsk(message.data.prompt, {
+                    intent: message.data.intent,
+                    client_crm_id: message.data.client_crm_id,
+                  })
+                }
+              >
+                {message.data.label}
+              </Button>
             ) : (
               message.report && <ReportView report={message.report} />
             )}
