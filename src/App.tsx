@@ -6,6 +6,7 @@ import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } 
 import { useMilo } from "./hooks/useMilo";
 import type { Health, Identity, TurnRequest } from "./types";
 import { Chat } from "./components/Chat";
+import { Intro } from "./components/Intro";
 import { Login } from "./components/Login";
 import { Playbook } from "./components/Playbook";
 import { Sidebar } from "./components/Sidebar";
@@ -13,6 +14,7 @@ import { Tasks } from "./components/Tasks";
 import { UserActivity } from "./components/UserActivity";
 import { Users } from "./components/Users";
 import { DevBanner, openGoogle } from "./components/ui";
+import { THEMES, ThemeSwitcher, type Theme } from "./components/ThemeSwitcher";
 import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string }> = {
@@ -32,6 +34,9 @@ export default function App() {
   //: Until the cookie has been checked, showing either the console or the
   //  sign-in page would be a guess — and a visible flash of the wrong one.
   const [checking, setChecking] = useState(true);
+  //: Milo's hello, played once right after a Google sign-in.
+  const [intro, setIntro] = useState(false);
+  const endIntro = useCallback(() => setIntro(false), []);
   //: The sidebar is a drawer on a phone.
   const [menuOpen, setMenuOpen] = useState(false);
   //: On a wide screen it can shrink to icons; remembered per browser.
@@ -44,12 +49,33 @@ export default function App() {
   });
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);
+    // The glass blur is paused while the width animates (liquid-glass.css).
+    document.documentElement.dataset.resizing = "";
+    window.setTimeout(() => delete document.documentElement.dataset.resizing, 550);
     try {
       localStorage.setItem("milo.sidebar", collapsed ? "open" : "collapsed");
     } catch {
       // Private window: it just isn't remembered.
     }
   };
+
+  //: Light or dark — remembered per browser, like the sidebar.
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem("milo.theme") as Theme;
+      return THEMES.includes(saved) ? saved : "light";
+    } catch {
+      return "light";
+    }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("milo.theme", theme);
+    } catch {
+      // Private window: it just isn't remembered.
+    }
+  }, [theme]);
 
   const { messages, busy, ask, reset } = useMilo();
 
@@ -91,12 +117,18 @@ export default function App() {
     return (
       <>
         <DevBanner />
-        <Login onSignedIn={setMe} />
+        <Login
+          onSignedIn={(identity) => {
+            setMe(identity);
+            setIntro(true);
+          }}
+        />
       </>
     );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+    {intro && <Intro name={me.display_name} onDone={endIntro} />}
     <DevBanner />
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {menuOpen && <div className="fixed inset-0 z-40 bg-ink-950/40 md:hidden" onClick={() => setMenuOpen(false)} />}
@@ -143,6 +175,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeSwitcher value={theme} onValueChange={setTheme} />
             {view === "tasks" && (
               <>
                 <GoogleApp
