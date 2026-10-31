@@ -39,7 +39,7 @@ export function Tasks({ me }: { me: Identity }) {
   const [tasks, setTasks] = useCached<Task[] | null>("tasks.list", null);
   const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
-  const [mine, setMine] = useCached("tasks.mine", false);
+  const [mine, setMine] = useCached("tasks.mine", true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
