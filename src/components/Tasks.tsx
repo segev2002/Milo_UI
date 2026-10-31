@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
+import { useCached } from "../lib/cache";
 import type { Identity, Person, Task, TaskStatus } from "../types";
 import { LuPaperclip, LuPlus, LuRefreshCw, LuX } from "react-icons/lu";
 import { TaskDetails } from "./TaskDetails";
@@ -35,10 +36,10 @@ const REFRESH_MS = 60_000;
 
 export function Tasks({ me }: { me: Identity }) {
   //: null until the first answer, so loading never reads as "no tasks".
-  const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [people, setPeople] = useState<Person[]>([]);
+  const [tasks, setTasks] = useCached<Task[] | null>("tasks.list", null);
+  const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
-  const [mine, setMine] = useState(false);
+  const [mine, setMine] = useCached("tasks.mine", false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);

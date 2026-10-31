@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, addUser, listUsers, removeUser, renameUser } from "../lib/api";
+import { useCached } from "../lib/cache";
 import type { AllowedUser, Identity } from "../types";
 import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
 
@@ -16,10 +17,10 @@ import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
  * calls would be refused anyway if it were reached some other way.
  */
 export function Users({ me }: { me: Identity }) {
-  const [users, setUsers] = useState<AllowedUser[]>([]);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useCached<AllowedUser[]>("users.list", []);
+  const [email, setEmail] = useCached("users.draft.email", "");
+  const [name, setName] = useCached("users.draft.name", "");
+  const [isAdmin, setIsAdmin] = useCached("users.draft.admin", false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,6 @@ export function Users({ me }: { me: Identity }) {
     <div className="space-y-5">
       <Card>
         <CardHead
-          title="הוספת משתמש"
           hint="הכניסו כתובת Gmail. מי שתוסיפו יוכל להיכנס עם Google, בלי סיסמה ובלי הזמנה."
         />
         <div className="flex flex-wrap items-end gap-3 px-5 py-5">
@@ -139,7 +139,6 @@ export function Users({ me }: { me: Identity }) {
 
       <Card>
         <CardHead
-          title="מי מורשה"
           hint="הסרה נכנסת לתוקף בכניסה הבאה של המשתמש — תוך 12 שעות לכל היותר"
           right={<Tag tone="ink">{active.length} מורשים</Tag>}
         />

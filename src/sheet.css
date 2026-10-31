@@ -1,0 +1,125 @@
+/* The sales log, laid out as the spreadsheet Sigal kept it in — its columns,
+   a tab per month along the bottom — but drawn in the
+   console's own design: it sits on a frosted card (`bg-white`), and every
+   colour here is a theme token, so light and dark both follow. */
+
+.milo-sheet {
+  /* The grid in the console's champagne, like its cards' edges and dividers. */
+  --sheet-grid: var(--color-champagne-deep);
+  font-size: 13px;
+  color: var(--color-body);
+}
+
+/* A frame of its own, inset in the card, so the first column on the right is
+   closed off like the rest rather than running into the card's edge. */
+.milo-sheet table {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  border-top: 1px solid var(--sheet-grid);
+  border-right: 1px solid var(--sheet-grid);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.milo-sheet thead th:first-child {
+  border-top-right-radius: 11px;
+}
+.milo-sheet thead th:last-child {
+  border-top-left-radius: 11px;
+}
+
+.milo-sheet th,
+.milo-sheet td {
+  border-left: 1px solid var(--sheet-grid);
+  border-bottom: 1px solid var(--sheet-grid);
+  padding: 0;
+  height: 30px;
+}
+
+/* The column names: the console's emerald, with champagne text — the same
+   pairing as the sidebar and the chosen month tab. Dark swaps them. */
+.milo-sheet .sheet-head {
+  background: var(--color-ink-900);
+  color: var(--color-champagne);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  height: 44px;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left-color: rgb(248 231 201 / 0.25);
+}
+
+.milo-sheet .sheet-cell {
+  display: block;
+  width: 100%;
+  height: 29px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  outline: none;
+}
+.milo-sheet .sheet-cell:hover {
+  background-color: var(--color-paper);
+}
+.milo-sheet .sheet-cell:focus {
+  box-shadow: inset 0 0 0 2px var(--color-ink-500);
+  border-radius: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Done (an issued policy, a ניוד made) is a strong green; not sent yet a
+   strong red. Solid in both themes, so they read at a glance. */
+.milo-sheet td.is-green {
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 700;
+}
+.milo-sheet td.is-red {
+  background: #dc2626;
+  color: #ffffff;
+  font-weight: 700;
+}
+/* מינוי סוכן */
+.milo-sheet td.is-pink {
+  background: #f472b6;
+  color: #ffffff;
+  font-weight: 700;
+}
+/* מסלקה */
+.milo-sheet td.is-blue {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+}
+.milo-sheet td.is-disabled {
+  background: transparent;
+}
+
+/* A cell Sigal painted (its colour is set inline), and the cell the paint bar
+   applies to. */
+.milo-sheet td.is-painted {
+  font-weight: 700;
+}
+.milo-sheet td.is-selected {
+  box-shadow: inset 0 0 0 2px var(--color-ink-500);
+}
+
+/* The status column: a dropdown that looks like the other cells. The browser's
+   arrow is hidden; the cell draws a chevron icon instead. */
+.milo-sheet .sheet-select {
+  appearance: none;
+  cursor: pointer;
+  padding-left: 26px;
+}
+.milo-sheet .sheet-select option {
+  color: var(--color-body);
+  background: var(--glass-dialog, #ffffff);
+  font-weight: 600;
+}

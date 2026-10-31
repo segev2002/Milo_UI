@@ -1,7 +1,14 @@
 import type {
   AllowedUser,
   AuthConfig,
+  Campaign,
+  CampaignInput,
   ConsoleActivity,
+  MiloNotification,
+  SaleRow,
+  SalesSheet,
+  SalesSheetRows,
+  ServiceRow,
   Health,
   Identity,
   Person,
@@ -200,4 +207,88 @@ export async function listActivity(filter: { email?: string; since?: string; unt
     Object.entries(filter).filter((entry): entry is [string, string] => !!entry[1]),
   );
   return request<ConsoleActivity[]>(`/agent/activity?${query}`);
+}
+
+/* --- מכירות (admins only) -------------------------------------------------- */
+
+const SALES = "/agent/sales";
+const id = encodeURIComponent;
+
+export async function listSalesSheets(): Promise<SalesSheet[]> {
+  return request<SalesSheet[]>(`${SALES}/sheets`);
+}
+
+export async function getSalesSheet(sheetId: string): Promise<SalesSheetRows> {
+  return request<SalesSheetRows>(`${SALES}/sheets/${id(sheetId)}`);
+}
+
+/** `month` is "YYYY-MM-DD" (any day of it), or omitted for a tab that is not a month. */
+export async function createSalesSheet(title: string, month?: string): Promise<SalesSheet> {
+  return request<SalesSheet>(`${SALES}/sheets`, {
+    method: "POST",
+    body: JSON.stringify({ title, month: month || null }),
+  });
+}
+
+export async function renameSalesSheet(sheetId: string, title: string): Promise<SalesSheet> {
+  return request<SalesSheet>(`${SALES}/sheets/${id(sheetId)}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export async function deleteSalesSheet(sheetId: string): Promise<void> {
+  await request(`${SALES}/sheets/${id(sheetId)}`, { method: "DELETE" });
+}
+
+/** Amount fields (`premium`, `pension`, `gemel`, `salary`) are sent as typed — "177K ₪" is fine. */
+export type SaleFields = Partial<Record<string, string | null | Record<string, string>>>;
+
+export async function addSale(sheetId: string, fields: SaleFields = {}): Promise<SaleRow> {
+  return request<SaleRow>(`${SALES}/sheets/${id(sheetId)}/rows`, { method: "POST", body: JSON.stringify(fields) });
+}
+
+export async function updateSale(rowId: string, fields: SaleFields): Promise<SaleRow> {
+  return request<SaleRow>(`${SALES}/rows/${id(rowId)}`, { method: "PATCH", body: JSON.stringify(fields) });
+}
+
+export async function deleteSale(rowId: string): Promise<void> {
+  await request(`${SALES}/rows/${id(rowId)}`, { method: "DELETE" });
+}
+
+export async function addService(sheetId: string, fields: SaleFields = {}): Promise<ServiceRow> {
+  return request<ServiceRow>(`${SALES}/sheets/${id(sheetId)}/service`, { method: "POST", body: JSON.stringify(fields) });
+}
+
+export async function updateService(rowId: string, fields: SaleFields): Promise<ServiceRow> {
+  return request<ServiceRow>(`${SALES}/service/${id(rowId)}`, { method: "PATCH", body: JSON.stringify(fields) });
+}
+
+export async function deleteService(rowId: string): Promise<void> {
+  await request(`${SALES}/service/${id(rowId)}`, { method: "DELETE" });
+}
+
+export async function listCampaigns(): Promise<Campaign[]> {
+  return request<Campaign[]>(`${SALES}/campaigns`);
+}
+
+export async function createCampaign(body: CampaignInput): Promise<Campaign> {
+  return request<Campaign>(`${SALES}/campaigns`, { method: "POST", body: JSON.stringify(body) });
+}
+
+/** An edit of the campaign, or `archived: true` — "הושלם", off the console. */
+export async function updateCampaign(
+  campaignId: string,
+  changes: Partial<Omit<CampaignInput, "title">> & { title?: string | null; archived?: boolean },
+): Promise<Campaign> {
+  return request<Campaign>(`${SALES}/campaigns/${id(campaignId)}`, { method: "PATCH", body: JSON.stringify(changes) });
+}
+
+export async function listNotifications(): Promise<MiloNotification[]> {
+  return request<MiloNotification[]>(`${SALES}/notifications`);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await request(`${SALES}/notifications/${id(notificationId)}/read`, { method: "POST" });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await request(`${SALES}/notifications/read`, { method: "POST" });
 }

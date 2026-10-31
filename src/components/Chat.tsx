@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ChatMessage, TurnRequest } from "../types";
+import { useCached } from "../lib/cache";
 import { intentLabel } from "../lib/catalog";
 import { ReportView, Callout } from "./ReportView";
 import { ClientDossierView } from "./ClientDossier";
@@ -18,7 +19,7 @@ export function Chat({
   onAsk: (prompt: string, request?: TurnRequest) => void;
   onRestart: () => void;
 }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useCached("chat.draft", "");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

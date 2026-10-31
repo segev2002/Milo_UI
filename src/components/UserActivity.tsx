@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, listActivity, listUsers } from "../lib/api";
+import { useCached } from "../lib/cache";
 import type { AllowedUser, ConsoleActivity } from "../types";
 import { Card, DateField, Empty, Select, Tag } from "./ui";
 
@@ -11,11 +12,11 @@ const ACTION_LABEL = { chat: "שאלה למילו", resolve_task: "סימן מש
  * enforces that, as with "ניהול משתמשים".
  */
 export function UserActivity() {
-  const [rows, setRows] = useState<ConsoleActivity[] | null>(null);
-  const [users, setUsers] = useState<AllowedUser[]>([]);
-  const [email, setEmail] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [rows, setRows] = useCached<ConsoleActivity[] | null>("activity.rows", null);
+  const [users, setUsers] = useCached<AllowedUser[]>("activity.users", []);
+  const [email, setEmail] = useCached("activity.email", "");
+  const [from, setFrom] = useCached("activity.from", "");
+  const [to, setTo] = useCached("activity.to", "");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

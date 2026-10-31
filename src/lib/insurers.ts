@@ -11,6 +11,9 @@ const INSURERS: { name: string; logo: string }[] = [
   { name: "איילון", logo: "ayalon.svg" },
 ];
 
+/** The companies the console knows, in display order — for pickers. */
+export const INSURER_NAMES: string[] = INSURERS.map((i) => i.name);
+
 /** The logo for text that starts with an insurer's name, or null. */
 export function insurerLogo(text: string | null | undefined): string | null {
   const value = text?.trim();

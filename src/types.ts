@@ -321,3 +321,105 @@ export interface ConsoleActivity {
   /** The resolved task's name or number. Null for a chat. */
   customer: string | null;
 }
+
+/* --- מכירות --------------------------------------------------------------- */
+
+/** One tab of the sales log, usually a month — GET /agent/sales/sheets. */
+export interface SalesSheet {
+  id: string;
+  title: string;
+  /** "YYYY-MM-01", or null for a tab that is not a month. */
+  month: string | null;
+  position: number;
+}
+
+/** One sale. Amounts are numbers; the *_raw fields keep what was typed ("177K ₪", "עצמאי"). */
+export interface SaleRow {
+  id: string;
+  sale_date: string | null;
+  production_date: string | null;
+  insured_name: string | null;
+  id_number: string | null;
+  product: string | null;
+  insurer: string | null;
+  premium: number | null;
+  premium_raw: string | null;
+  status: string | null;
+  agent_number: string | null;
+  notes: string | null;
+  /** ניוד קרן פנסיה */
+  pension_amount: number | null;
+  pension_raw: string | null;
+  /** ניוד קופות גמל */
+  gemel_amount: number | null;
+  gemel_raw: string | null;
+  salary: number | null;
+  salary_raw: string | null;
+  /** Cells Sigal painted: column → "#rrggbb". */
+  colors: Record<string, string>;
+}
+
+/** One row of the sheet's "יוניסון" block. */
+export interface ServiceRow {
+  id: string;
+  handler: string | null;
+  transfer_date: string | null;
+  treatment: string | null;
+  insured_name: string | null;
+  status: string | null;
+  left_job: string | null;
+}
+
+/** GET /agent/sales/sheets/{id} */
+export interface SalesSheetRows extends SalesSheet {
+  sales: SaleRow[];
+  service: ServiceRow[];
+}
+
+export type CampaignCategory = "premium" | "pension" | "gemel" | "salary";
+
+/** A campaign with its live total — GET /agent/sales/campaigns. */
+/** One category of a campaign, and how far it has got. */
+export interface CampaignGoal {
+  category: CampaignCategory;
+  target: number;
+  total: number;
+  remaining: number;
+  percent: number;
+  achieved: boolean;
+}
+
+/** A campaign: one insurance company, a date range, a target per category. */
+export interface Campaign {
+  id: string;
+  title: string | null;
+  insurer: string;
+  start_date: string;
+  end_date: string;
+  goals: CampaignGoal[];
+  archived: boolean;
+  /** Every goal reached. */
+  achieved: boolean;
+  days_left: number;
+  started: boolean;
+  ended: boolean;
+}
+
+export interface CampaignInput {
+  title?: string;
+  insurer: string;
+  start_date: string;
+  end_date: string;
+  goals: { category: CampaignCategory; target: number }[];
+}
+
+/** What Milo told the admins — GET /agent/sales/notifications. */
+export interface MiloNotification {
+  id: string;
+  kind: "campaign";
+  title: string;
+  body: string;
+  campaign_id: string | null;
+  created_at: string;
+  read_at: string | null;
+}

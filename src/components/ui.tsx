@@ -18,23 +18,18 @@ export function Card({
   );
 }
 
+/** The top strip of a card: its explanation and actions. Pages carry one title
+    only — the header's — so a card has no heading of its own. */
 export function CardHead({
-  title,
   hint,
   right,
 }: {
-  title: string;
   hint?: string;
   right?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-      <div>
-        <h2 className="font-display text-[15px] font-semibold tracking-tight text-ink-900">
-          {title}
-        </h2>
-        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
-      </div>
+    <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
+      {hint && <p className="text-xs text-muted">{hint}</p>}
       {right}
     </div>
   );
