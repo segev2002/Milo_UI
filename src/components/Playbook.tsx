@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { SCENARIOS } from "../lib/catalog";
+import { useCached } from "../lib/cache";
 import type { ScenarioMeta } from "../lib/catalog";
 import type { TurnRequest } from "../types";
 import { clientReference } from "./Chat";
@@ -16,7 +16,6 @@ export function Playbook({
     <div className="@container space-y-5">
       <Card>
         <CardHead
-          title="מה מילו יודע לעשות"
           hint="מה שמילו יודע לעשות היום. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
         />
         <div className="grid gap-4 px-5 py-5 @xl:grid-cols-2 @[56rem]:grid-cols-3">
@@ -38,7 +37,7 @@ function ScenarioCard({
   busy: boolean;
   onRun: (prompt: string, request: TurnRequest) => void;
 }) {
-  const [client, setClient] = useState("");
+  const [client, setClient] = useCached(`playbook.client.${scenario.intent}`, "");
   const blocked = scenario.needsClient && !client.trim();
 
   return (

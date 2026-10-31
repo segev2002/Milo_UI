@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { LuMenu, LuPanelRightClose, LuPanelRightOpen } from "react-icons/lu";
 import { SiGmail, SiGooglecalendar } from "react-icons/si";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
-import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
+import { health as fetchHealth, listTasks, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
 import { useMilo } from "./hooks/useMilo";
-import type { Health, Identity, TurnRequest } from "./types";
+import { clearCache } from "./lib/cache";
+import type { Health, Identity, Task, TurnRequest } from "./types";
 import { Chat } from "./components/Chat";
 import { Intro } from "./components/Intro";
 import { Login } from "./components/Login";
+import { DesktopNotificationsPrompt } from "./components/Notifications";
 import { Playbook } from "./components/Playbook";
+import { Sales } from "./components/Sales";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
 import { UserActivity } from "./components/UserActivity";
@@ -23,12 +26,16 @@ const TITLES: Record<View, { title: string }> = {
   tasks: { title: "משימות" },
   users: { title: "ניהול משתמשים" },
   activity: { title: "מעקב משתמשים" },
+  sales: { title: "מכירות" },
 };
 
 export default function App() {
   //: The page is the first part of the path: /tasks, /chat …
   const navigate = useNavigate();
-  const view = (useLocation().pathname.split("/")[1] || "tasks") as View;
+  const location = useLocation();
+  const view = (location.pathname.split("/")[1] || "tasks") as View;
+  //: /sales?campaign=… — a notification's campaign, scrolled to and outlined.
+  const focusCampaign = new URLSearchParams(location.search).get("campaign");
   const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<Identity | null>(null);
   //: Until the cookie has been checked, showing either the console or the
@@ -92,15 +99,57 @@ export default function App() {
 
   /** One 401, from any screen, means the same thing: the session is over. */
   useEffect(() => {
-    setUnauthorizedHandler(() => setMe(null));
+    setUnauthorizedHandler(() => {
+      clearCache();
+      setMe(null);
+    });
     fetchMe()
       .then(setMe)
       .catch(() => setMe(null))
       .finally(() => setChecking(false));
   }, []);
 
+  /** Desktop notifications while the console is open: a new task, one given to me, a new message. */
+  useEffect(() => {
+    if (!me || !("Notification" in window)) return;
+    //: The last list, in memory only. The first one is the baseline, so opening the console is quiet.
+    let seen: Map<string, Task> | null = null;
+    const check = async () => {
+      let tasks: Task[];
+      try {
+        tasks = await listTasks();
+      } catch {
+        return;
+      }
+      const before = seen;
+      seen = new Map(tasks.map((t) => [t.id, t]));
+      if (!before || Notification.permission !== "granted") return;
+      for (const t of tasks) {
+        const old = before.get(t.id);
+        const mine = t.assignee === me.email;
+        //: What I did myself is no news to me.
+        const byMe = (old ? t.events.at(-1)?.by : t.created_by) === me.email;
+        let title: string | null = null;
+        if (!old) title = (me.is_admin || mine) && !byMe ? "משימה חדשה" : null;
+        else if (mine && old.assignee !== me.email) title = byMe ? null : "שויכה אליך משימה";
+        else if (t.last_message_at > old.last_message_at && (mine || (me.is_admin && !t.assignee))) title = "הודעה חדשה";
+        if (!title) continue;
+        const note = new Notification(title, { body: t.title || t.name || t.phone || "", tag: t.id });
+        note.onclick = () => {
+          window.focus();
+          navigate("/tasks");
+          note.close();
+        };
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [me, navigate]);
+
   const signOut = async () => {
     await logout().catch(() => null);
+    clearCache();
     setMe(null);
     navigate("/tasks");
   };
@@ -129,6 +178,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
     {intro && <Intro name={me.display_name} onDone={endIntro} />}
+    {!intro && <DesktopNotificationsPrompt name={me.display_name} />}
     <DevBanner />
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {menuOpen && <div className="fixed inset-0 z-40 bg-ink-950/40 md:hidden" onClick={() => setMenuOpen(false)} />}
@@ -141,6 +191,10 @@ export default function App() {
         health={health}
         me={me}
         onSignOut={() => void signOut()}
+        onOpenCampaign={(id) => {
+          navigate(`/sales?campaign=${encodeURIComponent(id)}`);
+          setMenuOpen(false);
+        }}
         collapsed={collapsed}
         onClose={() => setMenuOpen(false)}
         className={`fixed inset-y-0 right-0 z-50 md:static md:translate-x-0 ${
@@ -224,6 +278,10 @@ export default function App() {
             <Route path="/tasks" element={<Tasks me={me} />} />
             <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
+            <Route
+              path="/sales"
+              element={me.is_admin ? <Sales focusCampaign={focusCampaign} /> : <Navigate to="/tasks" replace />}
+            />
             <Route path="*" element={<Navigate to="/tasks" replace />} />
           </Routes>
         </div>
