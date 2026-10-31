@@ -207,3 +207,56 @@ function NotificationsPanel({
     </Modal>
   );
 }
+
+/** Remembers "לא עכשיו" in this browser, so Milo asks only once. */
+const DISMISSED = "milo.desktopNotifications.dismissed";
+
+/**
+ * Milo asks, once, whether he may send desktop notifications. "כן" opens the
+ * browser's own prompt (Safari and Firefox allow it only from a click like
+ * this one); after any answer the card is gone for good.
+ */
+export function DesktopNotificationsPrompt({ name }: { name: string }) {
+  const [show, setShow] = useState(() => {
+    if (!("Notification" in window) || Notification.permission !== "default") return false;
+    try {
+      return !localStorage.getItem(DISMISSED);
+    } catch {
+      return true;
+    }
+  });
+  if (!show) return null;
+
+  const close = () => {
+    try {
+      localStorage.setItem(DISMISSED, "1");
+    } catch {
+      // Private window: it may ask again next time.
+    }
+    setShow(false);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-label="התראות במחשב"
+      className="fade-in fixed bottom-5 left-5 z-50 flex w-[calc(100%-2.5rem)] max-w-sm items-start gap-3 rounded-2xl border border-line bg-white p-4 shadow-xl"
+    >
+      <img src="/milo.png" alt="" className="h-12 w-12 shrink-0 rounded-xl bg-champagne object-cover" />
+      <div className="min-w-0">
+        <p className="font-bold text-ink-900">היי {name.split(" ")[0]}, זה מילו 👋</p>
+        <p className="mt-1 text-sm leading-relaxed text-body">
+          אפשר לקפוץ לך כהתראה במחשב כשמגיעה משימה חדשה? ככה לא תפספס/י אף לקוח.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" onClick={() => void Notification.requestPermission().catch(() => null).finally(close)}>
+            כן, תודיע לי
+          </Button>
+          <Button size="sm" variant="ghost" onClick={close}>
+            לא עכשיו
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
