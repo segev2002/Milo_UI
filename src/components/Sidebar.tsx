@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 import type { Health, Identity } from "../types";
+import { MiloNotifications } from "./Notifications";
 import {
   LuActivity,
   LuBookOpen,
   LuBotMessageSquare,
+  LuChartColumn,
   LuClipboardList,
   LuLogOut,
   LuUsers,
   LuX,
 } from "react-icons/lu";
 
-export type View = "activity" | "chat" | "playbook" | "tasks" | "users";
+export type View = "activity" | "chat" | "playbook" | "sales" | "tasks" | "users";
 
 const ICON = "h-[18px] w-[18px]";
 
@@ -22,6 +24,7 @@ const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
   { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
+  { view: "sales", label: "מכירות", icon: <LuChartColumn className={ICON} />, admin: true },
 ];
 
 export function Sidebar({
@@ -30,6 +33,7 @@ export function Sidebar({
   health,
   me,
   onSignOut,
+  onOpenCampaign,
   collapsed,
   onClose,
   className = "",
@@ -39,6 +43,8 @@ export function Sidebar({
   health: Health | null;
   me: Identity;
   onSignOut: () => void;
+  /** A notification's "למבצע" — the campaign on the sales page. */
+  onOpenCampaign: (campaignId: string) => void;
   /** Desktop only: a narrow rail of icons. On a phone the sidebar is a drawer and always full. */
   collapsed: boolean;
   /** Closes the drawer on a phone. */
@@ -62,7 +68,7 @@ export function Sidebar({
           collapsed ? "md:px-[18px]" : ""
         }`}
       >
-        <img src="/milo.png" alt="מילו" className="h-9 w-9 shrink-0 rounded-xl bg-champagne object-cover" />
+        <MiloNotifications enabled={me.is_admin} onOpenCampaign={onOpenCampaign} />
         <div className={`min-w-0 flex-1 whitespace-nowrap ${fade}`}>
           <p className="font-display text-[17px] font-semibold leading-none text-champagne">Milo</p>
           <p className="mt-1 text-[11px] tracking-wide text-champagne/55">סוכנות הביטוח של סיגל</p>

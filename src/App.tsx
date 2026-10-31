@@ -4,11 +4,13 @@ import { SiGmail, SiGooglecalendar } from "react-icons/si";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import { health as fetchHealth, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
 import { useMilo } from "./hooks/useMilo";
+import { clearCache } from "./lib/cache";
 import type { Health, Identity, TurnRequest } from "./types";
 import { Chat } from "./components/Chat";
 import { Intro } from "./components/Intro";
 import { Login } from "./components/Login";
 import { Playbook } from "./components/Playbook";
+import { Sales } from "./components/Sales";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
 import { UserActivity } from "./components/UserActivity";
@@ -23,12 +25,16 @@ const TITLES: Record<View, { title: string }> = {
   tasks: { title: "משימות" },
   users: { title: "ניהול משתמשים" },
   activity: { title: "מעקב משתמשים" },
+  sales: { title: "מכירות" },
 };
 
 export default function App() {
   //: The page is the first part of the path: /tasks, /chat …
   const navigate = useNavigate();
-  const view = (useLocation().pathname.split("/")[1] || "tasks") as View;
+  const location = useLocation();
+  const view = (location.pathname.split("/")[1] || "tasks") as View;
+  //: /sales?campaign=… — a notification's campaign, scrolled to and outlined.
+  const focusCampaign = new URLSearchParams(location.search).get("campaign");
   const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<Identity | null>(null);
   //: Until the cookie has been checked, showing either the console or the
@@ -92,7 +98,10 @@ export default function App() {
 
   /** One 401, from any screen, means the same thing: the session is over. */
   useEffect(() => {
-    setUnauthorizedHandler(() => setMe(null));
+    setUnauthorizedHandler(() => {
+      clearCache();
+      setMe(null);
+    });
     fetchMe()
       .then(setMe)
       .catch(() => setMe(null))
@@ -101,6 +110,7 @@ export default function App() {
 
   const signOut = async () => {
     await logout().catch(() => null);
+    clearCache();
     setMe(null);
     navigate("/tasks");
   };
@@ -141,6 +151,10 @@ export default function App() {
         health={health}
         me={me}
         onSignOut={() => void signOut()}
+        onOpenCampaign={(id) => {
+          navigate(`/sales?campaign=${encodeURIComponent(id)}`);
+          setMenuOpen(false);
+        }}
         collapsed={collapsed}
         onClose={() => setMenuOpen(false)}
         className={`fixed inset-y-0 right-0 z-50 md:static md:translate-x-0 ${
@@ -224,6 +238,10 @@ export default function App() {
             <Route path="/tasks" element={<Tasks me={me} />} />
             <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
+            <Route
+              path="/sales"
+              element={me.is_admin ? <Sales focusCampaign={focusCampaign} /> : <Navigate to="/tasks" replace />}
+            />
             <Route path="*" element={<Navigate to="/tasks" replace />} />
           </Routes>
         </div>
