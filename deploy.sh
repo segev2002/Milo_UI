@@ -25,14 +25,22 @@ fi
 
 [ -f dist/index.html ] || { echo "dist/index.html is missing — run without --no-build" >&2; exit 1; }
 
-# Hashed filenames, so they can be cached forever. index.html cannot: it is the
-# file that names the new hashes, and a stale copy pins the browser to the old
-# bundle until the cache expires.
+# Vite's hashed files (dist/assets/) can be cached forever: a change is a new
+# name. Everything else keeps its name across deploys (favicon.svg, milo.png,
+# logos, chat.html), so it is cached for an hour — cached forever, an old
+# favicon stayed in browsers after it was replaced. index.html cannot be cached
+# at all: it is the file that names the new hashes.
 echo "→ uploading assets"
+aws s3 sync dist/assets/ "s3://${BUCKET}/assets/" \
+    --delete \
+    --cache-control "public,max-age=31536000,immutable"
+
+echo "→ uploading public files"
 aws s3 sync dist/ "s3://${BUCKET}/" \
     --delete \
     --exclude index.html \
-    --cache-control "public,max-age=31536000,immutable"
+    --exclude "assets/*" \
+    --cache-control "public,max-age=3600"
 
 echo "→ uploading index.html"
 aws s3 cp dist/index.html "s3://${BUCKET}/index.html" \
