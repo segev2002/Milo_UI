@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuCheck, LuChevronDown, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
@@ -38,6 +39,8 @@ export function TaskDetails({
     const timer = window.setTimeout(() => setSavedAt(null), 3000);
     return () => window.clearTimeout(timer);
   }, [savedAt]);
+  //: The file shown over the task, to look at and download.
+  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
 
   //: What was typed but is not on the server yet.
   const changes: { title?: string; description?: string } = {};
@@ -151,16 +154,15 @@ export function TaskDetails({
           <Section title="קבצים">
             <div className="flex flex-wrap gap-2">
               {files.map((file, i) => (
-                <a
+                <button
                   key={i}
-                  href={file.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
+                  onClick={() => setPreview(file)}
                   className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-900 underline-offset-2 hover:underline"
                 >
                   <LuPaperclip className="h-3.5 w-3.5 shrink-0" />
                   {file.name}
-                </a>
+                </button>
               ))}
               <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-ink-300 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50">
                 <LuPlus className="h-3.5 w-3.5" />
@@ -288,7 +290,99 @@ export function TaskDetails({
         </span>
       </div>
       </div>
+      {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
     </Modal>
+  );
+}
+
+/** What a file's type is saved as, when its name has no extension (WhatsApp files have none). */
+const EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+};
+
+/**
+ * A file over the task: a picture or a PDF shown in place, anything else with
+ * just the download. Read once, behind the console's sign-in, and kept in memory
+ * while it is open, so downloading does not fetch it again.
+ */
+function FilePreview({ file, onClose }: { file: { name: string; url: string }; onClose: () => void }) {
+  const [blob, setBlob] = useState<{ url: string; type: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetch(file.url, { credentials: "include" })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(data);
+        setBlob({ url: objectUrl, type: data.type });
+      })
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.url]);
+
+  // Escape closes the preview only, not the task behind it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
+  const extension = blob && EXTENSIONS[blob.type];
+  const filename = extension && !/\.[a-z0-9]{2,5}$/i.test(file.name) ? `${file.name}.${extension}` : file.name;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/60 p-4 sm:p-8"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="flex h-full max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{file.name}</p>
+          {blob && (
+            <a
+              href={blob.url}
+              download={filename}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-3 py-1.5 text-xs font-semibold text-champagne hover:bg-ink-800"
+            >
+              <LuDownload className="h-4 w-4" />
+              הורדה
+            </a>
+          )}
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
+            <LuX className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-paper">
+          {failed ? (
+            <p className="text-sm text-blocked">הקובץ לא זמין.</p>
+          ) : !blob ? (
+            <p className="text-sm text-muted">טוען…</p>
+          ) : blob.type.startsWith("image/") ? (
+            <img src={blob.url} alt={file.name} className="max-h-full max-w-full object-contain" />
+          ) : blob.type === "application/pdf" ? (
+            <iframe src={blob.url} title={file.name} className="h-full w-full" />
+          ) : (
+            <p className="text-sm text-muted">אין תצוגה מקדימה לקובץ הזה. אפשר להוריד אותו.</p>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -350,6 +444,7 @@ function Conversation({ taskId }: { taskId: string }) {
 /** WhatsApp-style bubbles — here, and in "שאל את מילו" when he shows a conversation. */
 export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
   const bottom = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "nearest" });
@@ -369,15 +464,14 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
               </p>
               <p className="whitespace-pre-line text-sm leading-relaxed text-ink-900">{message.text}</p>
               {message.media_url && (
-                <a
-                  href={taskMediaUrl(message.media_url)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreview({ name: "קובץ מהלקוח", url: taskMediaUrl(message.media_url!) })}
                   className="inline-flex items-center gap-1 text-xs text-[#1f7aec] underline underline-offset-2"
                 >
                   <LuPaperclip className="h-3.5 w-3.5" />
                   קובץ
-                </a>
+                </button>
               )}
               <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
             </div>
@@ -385,6 +479,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
         );
       })}
       <div ref={bottom} />
+      {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
