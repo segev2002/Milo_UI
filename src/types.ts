@@ -79,6 +79,8 @@ export interface AllowedUser {
   added_by: string | null;
   created_at: string;
   last_login_at: string | null;
+  /** Chose a password (email sign-in); false = Google only, or not signed in yet. */
+  has_password?: boolean;
 }
 
 /** Who filed a task: Milo, for a client he could not help or a number he did not

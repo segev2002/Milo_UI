@@ -112,6 +112,27 @@ export async function loginWithGoogle(credential: string): Promise<Identity> {
   });
 }
 
+/** Email a 6-digit code for choosing a password (first sign-in, or forgotten).
+ *  Refused (403) for an address that is not on the list — no email is sent. */
+export async function requestPasswordCode(email: string): Promise<void> {
+  await request("/auth/password/code", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+/** Check the emailed code, save the new password, and sign in. */
+export async function setPassword(email: string, code: string, password: string): Promise<Identity> {
+  return request<Identity>("/auth/password/set", {
+    method: "POST",
+    body: JSON.stringify({ email, code, password }),
+  });
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<Identity> {
+  return request<Identity>("/auth/password/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
 export async function me(): Promise<Identity> {
   return request<Identity>("/auth/me");
 }
