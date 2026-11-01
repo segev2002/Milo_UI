@@ -185,13 +185,6 @@ html[data-theme] aside.bg-ink-900 {
   }
 }
 
-html[data-theme] .min-h-screen.bg-ink-900 {
-  background:
-    radial-gradient(50rem 34rem at 85% 0%, rgb(18 135 106 / 0.75), transparent 60%),
-    radial-gradient(40rem 30rem at 10% 100%, rgb(232 207 164 / 0.22), transparent 60%),
-    #032b20;
-}
-
 /* A field that turns white on focus would hide its own light text. */
 html[data-theme="dark"] .focus\:bg-white:focus {
   background-color: rgb(255 255 255 / 0.1);

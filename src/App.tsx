@@ -161,7 +161,7 @@ export default function App() {
 
   const head = TITLES[view] ?? TITLES.tasks;
 
-  if (checking) return <div className="h-screen bg-ink-900" />;
+  if (checking) return <div className="h-screen" />;
   if (!me)
     return (
       <>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, authConfig, loginWithGoogle } from "../lib/api";
+import { ApiError, authConfig, loginWithGoogle, loginWithPassword, requestPasswordCode, setPassword } from "../lib/api";
 import type { Identity } from "../types";
+import { Button, FIELD } from "./ui";
 
 /**
  * The console's front door.
@@ -15,11 +16,15 @@ import type { Identity } from "../types";
  * The client id comes from GET /auth/config rather than from the bundle, so the
  * console can be rebuilt without it and a changed id is a server setting.
  *
+ * Without Google: the same address and a password (EmailSignIn below). The
+ * password is chosen with a code emailed to that address — the first time, and
+ * whenever it is forgotten.
+ *
  * Nothing is kept here after a successful sign-in. The server answers with an
  * httpOnly cookie, which this page never sees and could not read if it tried.
  */
 
-const GSI_SRC = "https://accounts.google.com/gsi/client";
+const GSI_SRC = "https://accounts.google.com/gsi/client?hl=he";
 
 declare global {
   interface Window {
@@ -127,16 +132,12 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
   }, [signIn]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6 py-10">
+    <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <div className="fade-in w-full max-w-[400px]">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-champagne font-display text-2xl font-semibold text-ink-900">
-            M
-          </span>
-          <h1 className="mt-5 font-display text-[28px] font-semibold leading-none text-champagne">
-            מילו
-          </h1>
-          <p className="mt-5 font-display text-[15px] font-semibold leading-none text-champagne">העוזר האישי של סיגל</p>
+          <img src="/milo.png" alt="" className="h-16 w-16 rounded-2xl bg-champagne object-cover shadow-sm" />
+          <h1 className="mt-5 font-display text-[28px] font-semibold leading-none text-ink-900">מילו</h1>
+          <p className="mt-3 text-[15px] text-muted">העוזר האישי של סיגל</p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white px-7 py-8">
@@ -152,9 +153,16 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
             )}
           </div>
 
+          <div className="my-6 flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-line" />
+            או עם אימייל וסיסמה
+            <span className="h-px flex-1 bg-line" />
+          </div>
+          <EmailSignIn onSignedIn={onSignedIn} />
+
           {status === "unavailable" && !error && (
             <p className="mt-4 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-[13px] leading-relaxed text-[#7a5a1a]">
-              כניסה עם Google לא מוגדרת בשרת. פנו לסיגל.
+              כניסה עם Google לא מוגדרת בשרת. אפשר להיכנס עם אימייל וסיסמה.
             </p>
           )}
 
@@ -172,5 +180,177 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
         </div>
       </div>
     </div>
+  );
+}
+
+const RESEND_AFTER = 60;
+const ERROR_BOX =
+  "rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked";
+
+/**
+ * Email + password. "כניסה ראשונה / שכחתי סיסמה" emails a 6-digit code; with it
+ * the user chooses a password and is signed in. The server sends a code only to
+ * an address on the list; any other gets its refusal here, and no email.
+ */
+function EmailSignIn({ onSignedIn }: { onSignedIn: (identity: Identity) => void }) {
+  const [step, setStep] = useState<"login" | "code">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPasswordValue] = useState("");
+  const [code, setCode] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [wait, setWait] = useState(0);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!wait) return;
+    const timer = window.setTimeout(() => setWait(wait - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [wait]);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (exc) {
+      setError(exc instanceof ApiError ? exc.message : "משהו השתבש. נסו שוב.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+
+  const sendCode = () =>
+    run(async () => {
+      setSending(true);
+      await requestPasswordCode(email.trim());
+      setStep("code");
+      setCode("");
+      setPasswordValue("");
+      setConfirm("");
+      setWait(RESEND_AFTER);
+    }).finally(() => setSending(false));
+
+  const signIn = () => run(async () => onSignedIn(await loginWithPassword(email.trim(), password)));
+
+  const choose = () => {
+    if (password.length < 8) return setError("הסיסמה צריכה לכלול לפחות 8 תווים.");
+    if (password !== confirm) return setError("הסיסמאות לא זהות.");
+    return run(async () => onSignedIn(await setPassword(email.trim(), code.trim(), password)));
+  };
+
+  if (step === "code") {
+    return (
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void choose();
+        }}
+      >
+        <p className="text-[13px] leading-relaxed text-body">
+          שלחנו קוד בן 6 ספרות ל-<span dir="ltr" className="font-semibold text-ink-900">{email.trim()}</span>.
+          הקוד בתוקף ל-10 דקות.
+        </p>
+        <input
+          dir="ltr"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={code}
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+          placeholder="קוד מהמייל"
+          aria-label="קוד מהמייל"
+          className={`${FIELD} text-center tracking-[0.4em] placeholder:tracking-normal`}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPasswordValue(event.target.value)}
+          placeholder="סיסמה חדשה (לפחות 8 תווים)"
+          aria-label="סיסמה חדשה"
+          className={FIELD}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+          placeholder="הסיסמה שוב"
+          aria-label="אימות סיסמה"
+          className={FIELD}
+        />
+        {error && <p className={ERROR_BOX}>{error}</p>}
+        <Button type="submit" disabled={busy || code.length !== 6 || !password} className="w-full justify-center">
+          {busy ? "שומר…" : "שמירה וכניסה"}
+        </Button>
+        <div className="flex items-center justify-between text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setStep("login");
+              setError(null);
+            }}
+            className="text-muted hover:text-ink-900"
+          >
+            חזרה
+          </button>
+          <button
+            type="button"
+            disabled={busy || wait > 0}
+            onClick={() => void sendCode()}
+            className="font-medium text-ink-900 hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline"
+          >
+            {wait > 0 ? `שליחה מחדש בעוד ${wait}` : "שליחת קוד חדש"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void signIn();
+      }}
+    >
+      <input
+        dir="ltr"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="name@example.co.il"
+        aria-label="אימייל"
+        className={FIELD}
+      />
+      <input
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPasswordValue(event.target.value)}
+        placeholder="סיסמה"
+        aria-label="סיסמה"
+        className={FIELD}
+      />
+      {error && <p className={ERROR_BOX}>{error}</p>}
+      <Button type="submit" disabled={busy || !validEmail || !password} className="w-full justify-center">
+        {sending ? "שולח קוד…" : busy ? "מתחבר…" : "כניסה"}
+      </Button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => (validEmail ? void sendCode() : setError("הכניסו קודם את כתובת האימייל."))}
+        className="block w-full text-center text-xs font-medium text-ink-900 hover:underline"
+      >
+        כניסה ראשונה או שכחתי סיסמה
+      </button>
+    </form>
   );
 }

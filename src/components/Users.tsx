@@ -86,7 +86,7 @@ export function Users({ me }: { me: Identity }) {
     <div className="space-y-5">
       <Card>
         <CardHead
-          hint="הכניסו כתובת Gmail. מי שתוסיפו יוכל להיכנס עם Google, בלי סיסמה ובלי הזמנה."
+          hint="מי שתוסיפו נכנס עם Google, או עם האימייל וסיסמה: בכניסה הראשונה הוא מקבל קוד למייל ובוחר סיסמה."
         />
         <div className="flex flex-wrap items-end gap-3 px-5 py-5">
           <div className="min-w-[200px] flex-1">
@@ -168,6 +168,7 @@ export function Users({ me }: { me: Identity }) {
                     {user.added_by && ` · הוסף על ידי ${user.added_by}`}
                   </p>
                 </div>
+                {user.has_password && <Tag>סיסמה הוגדרה</Tag>}
                 {user.is_admin && <Tag tone="warm">מנהל</Tag>}
                 {user.email === me.email ? (
                   <span className="text-xs text-muted">זה אתם</span>
@@ -188,8 +189,9 @@ export function Users({ me }: { me: Identity }) {
       </Card>
 
       <p className="px-1 pb-2 text-xs leading-relaxed text-muted">
-        הרשימה הזו היא ההרשאה עצמה — היא נבדקת בכל כניסה, וכניסה תקפה ל-12 שעות. Google רק מוכיח
-        מי האדם; מה שקובע אם הוא נכנס זה שהכתובת שלו מופיעה כאן.
+        הרשימה הזו היא ההרשאה עצמה — היא נבדקת בכל כניסה, וכניסה תקפה ל-12 שעות. Google או הקוד
+        במייל רק מוכיחים מי האדם; מה שקובע אם הוא נכנס זה שהכתובת שלו מופיעה כאן. הסרה מוחקת גם
+        את הסיסמה.
       </p>
     </div>
   );
