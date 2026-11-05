@@ -19,7 +19,7 @@
   border-top: 1px solid var(--sheet-grid);
   border-right: 1px solid var(--sheet-grid);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: clip;
 }
 .milo-sheet thead th:first-child {
   border-top-right-radius: 11px;
@@ -122,4 +122,28 @@
   color: var(--color-body);
   background: var(--glass-dialog, #ffffff);
   font-weight: 600;
+}
+
+/* The sheet scrolls inside the card, both ways, so it never runs off the
+   screen: the column names stay on top and the client's name on the right. */
+.milo-sheet .sheet-scroll {
+  max-height: calc(100vh - 260px);
+  min-height: 320px;
+}
+.milo-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.milo-sheet .is-frozen {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -4px 0 6px -4px rgb(0 0 0 / 0.18);
+}
+.milo-sheet td.is-frozen:not(.is-painted):not(.is-green):not(.is-red):not(.is-pink):not(.is-blue) {
+  background: var(--color-paper);
+}
+.milo-sheet thead th.is-frozen {
+  z-index: 4;
 }
