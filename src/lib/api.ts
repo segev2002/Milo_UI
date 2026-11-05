@@ -1,6 +1,7 @@
 import type {
   AllowedUser,
   AuthConfig,
+  CallTranscription,
   Campaign,
   CampaignInput,
   ConsoleActivity,
@@ -218,6 +219,35 @@ export async function taskConversation(id: string): Promise<TaskChatMessage[]> {
 /** A file sent with a task, or attached to it. Same-origin, so the session cookie goes with it. */
 export function taskMediaUrl(mediaUrl: string): string {
   return url(`/agent/tasks/media?url=${encodeURIComponent(mediaUrl)}`);
+}
+
+/* --- תמלול שיחות -------------------------------------------------------- */
+
+const CALLS = "/agent/calls";
+
+export async function listCalls(): Promise<CallTranscription[]> {
+  return request<CallTranscription[]>(CALLS);
+}
+
+export async function getCall(id: string): Promise<CallTranscription> {
+  return request<CallTranscription>(`${CALLS}/${encodeURIComponent(id)}`);
+}
+
+/** The recording, and who the call was with. The server transcribes, then summarises, in the background,
+    and keeps only the text — the recording itself is not stored. */
+export async function uploadCall(
+  audio: Blob,
+  filename: string,
+  client: { client_name: string; phone?: string; id_number?: string },
+): Promise<CallTranscription> {
+  const form = new FormData();
+  form.append("audio", audio, filename);
+  for (const [key, value] of Object.entries(client)) if (value) form.append(key, value);
+  return request<CallTranscription>(CALLS, { method: "POST", body: form });
+}
+
+export async function deleteCall(id: string): Promise<void> {
+  await request(`${CALLS}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 /* --- מעקב משתמשים -------------------------------------------------------- */

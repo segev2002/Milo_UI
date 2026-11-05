@@ -22,6 +22,7 @@ import { Button, Card, CardHead, DateField, Empty, FIELD, InsurerName, Select, T
 
 export const CATEGORY_LABEL: Record<CampaignCategory, string> = {
   premium: "פרמיה",
+  savings: "תוכניות חסכון",
   pension: "ניוד קרן פנסיה",
   gemel: "ניוד קופות גמל",
   salary: "גובה שכר",
@@ -237,6 +238,8 @@ function CampaignCard({
 
 /** A new campaign, or — with `campaign` — the edit of an existing one. */
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as CampaignCategory[];
+/** The insurer picker's "אחר": any company or agency, typed. */
+const OTHER = "__other__";
 
 /** A new campaign, or — with `campaign` — the edit of an existing one. */
 function CampaignForm({
@@ -248,7 +251,12 @@ function CampaignForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [insurer, setInsurer] = useState(campaign?.insurer ?? INSURER_NAMES[1] ?? INSURER_NAMES[0]);
+  const initial = campaign?.insurer ?? INSURER_NAMES[1] ?? INSURER_NAMES[0];
+  const known = INSURER_NAMES.includes(initial);
+  //: The picker's choice: a company, or OTHER — then `other` is the name typed (e.g. "ONE סוכנות").
+  const [picked, setPicked] = useState(known ? initial : OTHER);
+  const [other, setOther] = useState(known ? "" : initial);
+  const insurer = picked === OTHER ? other.trim() : picked;
   const [start, setStart] = useState(campaign?.start_date ?? "");
   const [end, setEnd] = useState(campaign?.end_date ?? "");
   //: A target per category; the amount is kept as typed until it is sent.
@@ -267,6 +275,7 @@ function CampaignForm({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!insurer) return setError('כתבו את שם החברה או הסוכנות של המבצע.');
     if (!start || !end) return setError("בחרו תאריך התחלה ותאריך סיום.");
     if (end < start) return setError("תאריך הסיום לפני תאריך ההתחלה.");
     const parsed = goals.map((g) => ({ category: g.category, target: Number(g.target.replace(/[,₪\s]/g, "")) }));
@@ -289,7 +298,26 @@ function CampaignForm({
       <form onSubmit={(e) => void submit(e)} className="space-y-5 p-5 sm:p-8">
         <h2 className="font-display text-2xl font-semibold text-ink-900">{campaign ? "עריכת המבצע" : "מבצע חדש"}</h2>
         <Labelled label="חברת ביטוח">
-          <Select value={insurer} onChange={setInsurer} options={INSURER_NAMES.map((n) => ({ value: n, label: n }))} />
+          <Select
+            value={picked}
+            onChange={setPicked}
+            options={[...INSURER_NAMES.map((n) => ({ value: n, label: n })), { value: OTHER, label: "אחר" }]}
+          />
+          {picked === OTHER && (
+            <input
+              autoFocus
+              required
+              maxLength={60}
+              value={other}
+              onChange={(e) => setOther(e.target.value)}
+              placeholder="למשל: ONE סוכנות"
+              aria-label="שם החברה או הסוכנות"
+              className={`${FIELD} mt-2 text-base`}
+            />
+          )}
+          {picked === OTHER && (
+            <p className="mt-1.5 text-xs text-muted">המבצע סופר שורות שבעמודת &quot;חברה&quot; כתוב בהן בדיוק השם הזה.</p>
+          )}
         </Labelled>
         <div className="grid gap-5 sm:grid-cols-2">
           <Labelled label="מתאריך">
@@ -386,24 +414,29 @@ type Column = {
   kind?: "date" | "ltr" | "insurer" | "status" | "choice";
   /** A money column: grouped at the left end, with a money icon on its header. */
   money?: boolean;
+  /** Stays on screen while the sheet scrolls sideways — the client's name. */
+  frozen?: boolean;
 };
 
-/** The sales columns, right to left: the sale, then the four money columns at the left end. */
+/** The sales columns, right to left: the sale, then the five money columns at the left end. */
 const COLUMNS: Column[] = [
-  { letter: "A", label: "תאריך מכירה", width: 104, key: "sale_date", kind: "date" },
-  { letter: "B", label: "תאריך הפקה", width: 104, key: "production_date", kind: "date" },
-  { letter: "C", label: "שם מבוטח", width: 140, key: "insured_name" },
-  { letter: "D", label: "ת.ז", width: 104, key: "id_number", kind: "ltr" },
-  { letter: "E", label: "סוג המוצר", width: 190, key: "product" },
+  { letter: "A", label: "תאריך מכירה", width: 100, key: "sale_date", kind: "date" },
+  { letter: "B", label: "תאריך הפקה", width: 100, key: "production_date", kind: "date" },
+  { letter: "C", label: "שם מבוטח", width: 136, key: "insured_name", frozen: true },
+  { letter: "D", label: "ת.ז", width: 100, key: "id_number", kind: "ltr" },
+  { letter: "E", label: "סוג המוצר", width: 164, key: "product" },
   { letter: "F", label: "חברה", width: 92, key: "insurer", kind: "insurer" },
-  { letter: "G", label: "סטטוס", width: 116, key: "status", kind: "choice" },
-  { letter: "H", label: "מספר סוכן", width: 92, key: "agent_number", kind: "ltr" },
-  { letter: "I", label: "סטטוס", width: 200, key: "notes", kind: "status" },
+  { letter: "G", label: "סטטוס", width: 112, key: "status", kind: "choice" },
+  { letter: "H", label: "מספר סוכן", width: 88, key: "agent_number", kind: "ltr" },
+  { letter: "I", label: "סטטוס", width: 176, key: "notes", kind: "status" },
   { letter: "J", label: "פרמיה", width: 96, key: "premium", money: true },
-  { letter: "K", label: "ניוד קרן פנסיה", width: 140, key: "pension", money: true },
-  { letter: "L", label: "ניוד קופות גמל", width: 140, key: "gemel", money: true },
-  { letter: "M", label: "גובה שכר", width: 110, key: "salary", money: true },
+  { letter: "K", label: "תוכניות חסכון", width: 128, key: "savings", money: true },
+  { letter: "L", label: "ניוד קרן פנסיה", width: 128, key: "pension", money: true },
+  { letter: "M", label: "ניוד קופות גמל", width: 128, key: "gemel", money: true },
+  { letter: "N", label: "גובה שכר", width: 104, key: "salary", money: true },
 ];
+/** How small the sheet may be drawn, so more of it fits on a laptop screen. */
+const ZOOMS = [1, 0.9, 0.8, 0.7];
 /** The statuses the status column offers. A row with another (older) one keeps it as an option. */
 const STATUSES = ["פוליסה", "הצעה", "מינוי סוכן", "טרם נשלח", "הפקדה"];
 
@@ -445,6 +478,8 @@ function saleValue(row: SaleRow, key: string): string {
       return sheetDate(row.production_date);
     case "premium":
       return amount(row.premium, row.premium_raw);
+    case "savings":
+      return amount(row.savings, row.savings_raw);
     case "pension":
       return amount(row.pension_amount, row.pension_raw);
     case "gemel":
@@ -500,6 +535,7 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
   //: The cell the paint applies to — the last one clicked, kept after it loses focus.
   const [selected, setSelected] = useState<{ r: number; key: string } | null>(null);
   const grid = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useSheetZoom();
   //: The empty row's sale while it is being created, so a second cell typed
   //  in quickly fills the same row instead of adding another.
   const creating = useRef<Promise<SaleRow> | undefined>(undefined);
@@ -661,7 +697,10 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
               />
             </div>
           </div>
-          <PaintBar enabled={!!(selected && sheet?.sales[selected.r])} onPaint={(color) => void paint(color)} />
+          <div className="flex flex-wrap items-center gap-4">
+            <PaintBar enabled={!!(selected && sheet?.sales[selected.r])} onPaint={(color) => void paint(color)} />
+            <ZoomBar zoom={zoom} onZoom={setZoom} />
+          </div>
         </div>
       )}
 
@@ -670,8 +709,9 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
       ) : sheets.length === 0 ? (
         <Empty title="אין עדיין גיליונות" hint='לחצו "+" למטה כדי לפתוח גיליון לחודש.' />
       ) : (
-        <div ref={grid} className="overflow-x-auto px-5 pb-5">
-          <table style={{ width: "100%", minWidth: width }}>
+        // Scrolls both ways inside the card, so the column names and the client's name stay in view.
+        <div ref={grid} className="sheet-scroll overflow-auto px-5 pb-5">
+          <table style={{ width: "100%", minWidth: width, zoom }}>
             <colgroup>
               {COLUMNS.map((c) => (
                 <col key={c.letter} style={{ width: c.width }} />
@@ -680,7 +720,7 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
             <thead>
               <tr>
                 {COLUMNS.map((c) => (
-                  <th key={c.letter} className="sheet-head" title={c.label}>
+                  <th key={c.letter} className={`sheet-head ${c.frozen ? "is-frozen" : ""}`} title={c.label}>
                     {c.money ? (
                       <span className="inline-flex items-center gap-1.5">
                         <CircleDollarSign className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
@@ -701,13 +741,14 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
                     <tr key={r >= 0 ? r : `blank-${n}`}>
                       {COLUMNS.map((c, ci) => {
                         // Only the existing rows and the first empty one can be typed in.
-                        if (!sale && r !== sheet.sales.length) return <td key={c.letter} className="is-disabled" />;
+                        if (!sale && r !== sheet.sales.length)
+                          return <td key={c.letter} className={`is-disabled ${c.frozen ? "is-frozen" : ""}`} />;
                         const value = sale ? saleValue(sale, c.key) : "";
                         const painted = sale?.colors?.[c.key];
                         const look = {
                           className: `${painted ? "is-painted" : c.kind === "insurer" ? "" : tone(value)} ${
                             selected?.r === r && selected.key === c.key ? "is-selected" : ""
-                          }`,
+                          } ${c.frozen ? "is-frozen" : ""}`,
                           style: painted ? { background: painted, color: textOn(painted) } : undefined,
                         };
                         const pick = () => setSelected({ r, key: c.key });
@@ -833,10 +874,11 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
               {[insurer, status && (status === NO_STATUS ? "ללא סטטוס" : status)].filter(Boolean).join(" · ")}
             </p>
           )}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             <Stat label="פוליסות" value={String(policies.length)} />
             <Stat label="הצעות" value={String(proposals.length)} />
             <Stat label="פרמיה" value={ils(sum((r) => r.premium))} money />
+            <Stat label="תוכניות חסכון" value={ils(sum((r) => r.savings))} money />
             <Stat label="ניוד קרן פנסיה" value={ils(sum((r) => r.pension_amount))} money />
             <Stat label="ניוד קופות גמל" value={ils(sum((r) => r.gemel_amount))} money />
             <Stat label="גובה שכר" value={ils(sum((r) => r.salary))} money />
@@ -853,6 +895,49 @@ const PAINTS = [
   "#16a34a", "#dc2626", "#f59e0b", "#2563eb", "#7c3aed", "#db2777", "#0d9488", "#4b5563",
   "#bbf7d0", "#fecaca", "#fef08a", "#bfdbfe", "#ddd6fe", "#fbcfe8", "#99f6e4", "#e5e7eb",
 ];  // prettier-ignore
+
+/** The sheet's zoom, remembered in this browser (a display preference, no client data). */
+function useSheetZoom(): [number, (zoom: number) => void] {
+  const KEY = "milo.sheet.zoom";
+  const [zoom, setZoom] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(KEY));
+      return ZOOMS.includes(saved) ? saved : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const set = (next: number) => {
+    setZoom(next);
+    try {
+      localStorage.setItem(KEY, String(next));
+    } catch {
+      // Storage blocked: the zoom just isn't remembered.
+    }
+  };
+  return [zoom, set];
+}
+
+/** 100% / 90% / 80% / 70% — draw the sheet smaller so more columns fit. */
+function ZoomBar({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) => void }) {
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="גודל הטבלה">
+      <span className="me-1 text-xs font-bold text-muted">גודל</span>
+      {ZOOMS.map((z) => (
+        <button
+          key={z}
+          onClick={() => onZoom(z)}
+          aria-pressed={zoom === z}
+          className={`rounded-md border px-2 py-0.5 text-xs font-bold transition-colors ${
+            zoom === z ? "border-ink-900 bg-ink-900 text-champagne" : "border-line text-ink-700 hover:bg-ink-50"
+          }`}
+        >
+          {Math.round(z * 100)}%
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** White text on a dark colour, dark text on a light one. */
 function textOn(hex: string): string {

@@ -39,7 +39,7 @@ export function Tasks({ me }: { me: Identity }) {
   const [tasks, setTasks] = useCached<Task[] | null>("tasks.list", null);
   const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
-  const [mine, setMine] = useCached("tasks.mine", true);
+  const [assignee, setAssignee] = useCached("tasks.assignee", me.email);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -81,7 +81,16 @@ export function Tasks({ me }: { me: Identity }) {
     }
   }
 
-  const shown = (tasks ?? []).filter((t) => !mine || t.assignee === me.email);
+  const shown = (tasks ?? []).filter((t) => !assignee || t.assignee === assignee);
+  //: Every user, the signed-in one first; an assignee who is no longer a user still gets a line.
+  const filterOptions = [
+    { value: "", label: "כל המשימות" },
+    { value: me.email, label: "המשימות שלי" },
+    ...people.filter((p) => p.email !== me.email).map((p) => ({ value: p.email, label: personName(people, p.email) })),
+    ...[...new Set((tasks ?? []).map((t) => t.assignee))]
+      .filter((e): e is string => !!e && e !== me.email && !people.some((p) => p.email === e))
+      .map((e) => ({ value: e, label: personName(people, e) })),
+  ];
   const open = tasks?.find((t) => t.id === openId) ?? null;
 
   return (
@@ -96,14 +105,9 @@ export function Tasks({ me }: { me: Identity }) {
           <LuPlus className="h-4 w-4" />
           תביעה חדשה
         </Button>
-        <button
-          onClick={() => setMine(!mine)}
-          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-            mine ? "border-ink-900 bg-ink-900 text-champagne" : "border-line bg-white text-body hover:border-ink-300"
-          }`}
-        >
-          המשימות שלי
-        </button>
+        <div className="w-48">
+          <Select value={assignee} onChange={setAssignee} options={filterOptions} className="py-1.5 text-xs font-medium" />
+        </div>
         {/* What the card colors mean. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs text-muted">
           <span className="flex items-center gap-1.5">

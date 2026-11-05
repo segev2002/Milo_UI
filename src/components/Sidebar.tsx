@@ -8,23 +8,26 @@ import {
   LuChartColumn,
   LuClipboardList,
   LuLogOut,
+  LuMic,
   LuUsers,
   LuX,
 } from "react-icons/lu";
 
-export type View = "activity" | "chat" | "playbook" | "sales" | "tasks" | "users";
+export type View = "activity" | "calls" | "chat" | "playbook" | "sales" | "tasks" | "users";
 
 const ICON = "h-[18px] w-[18px]";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
-    security — the server refuses the calls behind them either way. */
+    security — the server refuses the calls behind them either way.
+    Order: the daily work, then Milo, then managing the console. */
 const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "tasks", label: "משימות", icon: <LuClipboardList className={ICON} /> },
-  { view: "chat", label: "שאל את מילו", icon: <LuBotMessageSquare className={ICON} /> },
-  { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
-  { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
-  { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
   { view: "sales", label: "מכירות", icon: <LuChartColumn className={ICON} />, admin: true },
+  { view: "calls", label: "תמלול שיחות", icon: <LuMic className={ICON} /> },
+  { view: "chat", label: "שאל את מילו", icon: <LuBotMessageSquare className={ICON} /> },
+  { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
+  { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
+  { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
 ];
 
 export function Sidebar({

@@ -346,6 +346,8 @@ export interface SaleRow {
   insurer: string | null;
   premium: number | null;
   premium_raw: string | null;
+  savings: number | null;
+  savings_raw: string | null;
   status: string | null;
   agent_number: string | null;
   notes: string | null;
@@ -378,7 +380,7 @@ export interface SalesSheetRows extends SalesSheet {
   service: ServiceRow[];
 }
 
-export type CampaignCategory = "premium" | "pension" | "gemel" | "salary";
+export type CampaignCategory = "premium" | "savings" | "pension" | "gemel" | "salary";
 
 /** A campaign with its live total — GET /agent/sales/campaigns. */
 /** One category of a campaign, and how far it has got. */
@@ -424,4 +426,25 @@ export interface MiloNotification {
   campaign_id: string | null;
   created_at: string;
   read_at: string | null;
+}
+
+/* --- תמלול שיחות ---------------------------------------------------------- */
+
+/** transcribing → summarizing → done, in that order; failed at any step. */
+export type CallStatus = "transcribing" | "summarizing" | "done" | "failed";
+
+/** A recorded call. The list omits `transcript` and `summary`; one call has them. */
+export interface CallTranscription {
+  id: string;
+  client_name: string;
+  phone: string | null;
+  id_number: string | null;
+  duration_seconds: number | null;
+  status: CallStatus;
+  error: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  transcript?: string | null;
+  summary?: string | null;
 }

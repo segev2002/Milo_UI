@@ -6,6 +6,7 @@ import { health as fetchHealth, listTasks, logout, me as fetchMe, setUnauthorize
 import { useMilo } from "./hooks/useMilo";
 import { clearCache } from "./lib/cache";
 import type { Health, Identity, Task, TurnRequest } from "./types";
+import { Calls } from "./components/Calls";
 import { Chat } from "./components/Chat";
 import { Intro } from "./components/Intro";
 import { Login } from "./components/Login";
@@ -24,6 +25,7 @@ const TITLES: Record<View, { title: string }> = {
   chat: { title: "שאל את מילו" },
   playbook: { title: "מה הוא יודע לעשות" },
   tasks: { title: "משימות" },
+  calls: { title: "תמלול שיחות" },
   users: { title: "ניהול משתמשים" },
   activity: { title: "מעקב משתמשים" },
   sales: { title: "מכירות" },
@@ -276,6 +278,7 @@ export default function App() {
             />
             <Route path="/playbook" element={<Playbook busy={busy} onRun={run} />} />
             <Route path="/tasks" element={<Tasks me={me} />} />
+            <Route path="/calls" element={<Calls />} />
             <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
             <Route
