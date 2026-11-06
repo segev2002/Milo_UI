@@ -31,7 +31,7 @@ SOFTWARE.
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform, type Transition } from "motion/react";
-import { Check, Mic, MicOff, Pause, Play, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Download, Mic, MicOff, Pause, Play, RotateCcw, Trash2 } from "lucide-react";
 
 export interface AiRecorderProps {
   /** Called after stop with the recorded audio and its duration. */
@@ -664,3 +664,207 @@ function Bars({ peaks, height, className }: { peaks: number[]; height: number; c
 }
 
 export default AiRecorder;
+
+/* --- the saved recording ---------------------------------------------------- */
+
+/** Bars across the player — enough that a long call still shows its shape. */
+const PLAYER_PEAKS = 72;
+
+/** The loudness of `blob` in `count` buckets, 0.12–1 — or null when the browser cannot decode it. */
+async function peaksOf(blob: Blob, count: number): Promise<number[] | null> {
+  try {
+    const ctx = new AudioContext();
+    const audio = await ctx.decodeAudioData(await blob.arrayBuffer());
+    void ctx.close();
+    const data = audio.getChannelData(0);
+    const size = Math.max(1, Math.floor(data.length / count));
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      let m = 0;
+      for (let j = i * size; j < (i + 1) * size && j < data.length; j += 16) m = Math.max(m, Math.abs(data[j]));
+      out.push(m);
+    }
+    const max = Math.max(...out, 0.02);
+    return out.map((v) => clamp(0.12 + (v / max) * 0.88));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A saved call's recording, drawn like the recorder's own playback: play, the
+ * call's waveform filling as it plays (click or drag to jump), the time, and a
+ * download of the file.
+ */
+export function RecordingPlayer({
+  blob,
+  filename,
+  accent = "var(--color-ink-700)",
+  size = 52,
+}: {
+  blob: Blob;
+  filename: string;
+  accent?: string;
+  size?: number;
+}) {
+  const reduced = useReducedMotion() ?? false;
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [peaks, setPeaks] = useState<number[]>(() => Array.from({ length: PLAYER_PEAKS }, () => 0.12));
+  const [duration, setDuration] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(0);
+  const progress = useMotionValue(0);
+  const clip = useTransform(progress, (p) => `inset(0 ${(1 - p) * 100}% 0 0)`);
+  const inner = Math.max(24, size - 12);
+  const icon = Math.round(inner * 0.5);
+
+  useEffect(() => {
+    const made = URL.createObjectURL(blob);
+    setUrl(made);
+    void peaksOf(blob, PLAYER_PEAKS).then((p) => p && setPeaks(p));
+    return () => URL.revokeObjectURL(made);
+  }, [blob]);
+
+  // While playing, follow the audio.
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0;
+    const tick = () => {
+      const a = audioRef.current;
+      if (a && duration) {
+        progress.set(clamp(a.currentTime / duration));
+        setPos(a.currentTime);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, duration, progress]);
+
+  const seek = (frac: number) => {
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    const f = clamp(frac);
+    a.currentTime = f * duration;
+    progress.set(f);
+    setPos(f * duration);
+  };
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+      return;
+    }
+    if (progress.get() >= 0.999) seek(0);
+    a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  };
+
+  const fromPointer = (e: PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    seek((e.clientX - r.left) / r.width);
+  };
+
+  return (
+    <div dir="ltr" className="flex w-full items-center gap-2 rounded-full border border-line bg-white px-1.5 text-ink-900 shadow-sm" style={{ height: size }}>
+      {url && (
+        <audio
+          ref={audioRef}
+          src={url}
+          preload="metadata"
+          className="hidden"
+          onLoadedMetadata={(e) => {
+            // A recording made in the browser has no length written in it until it is read through.
+            const a = e.currentTarget;
+            if (Number.isFinite(a.duration)) setDuration(a.duration);
+            else {
+              a.currentTime = 1e9;
+              a.ontimeupdate = () => {
+                a.ontimeupdate = null;
+                setDuration(a.duration);
+                a.currentTime = 0;
+              };
+            }
+          }}
+          onEnded={() => {
+            setPlaying(false);
+            progress.set(1);
+          }}
+        />
+      )}
+      <IconButton
+        label={playing ? "השהיה" : "השמעה"}
+        onClick={toggle}
+        dim={inner}
+        reduced={reduced}
+        className="bg-ink-900 hover:bg-ink-800"
+        // Set directly: the button's own grey text class would otherwise win over a class here.
+        style={{ color: "var(--color-champagne)" }}
+      >
+        {playing ? (
+          <Pause style={{ width: icon * 0.8, height: icon * 0.8 }} fill="currentColor" aria-hidden />
+        ) : (
+          <Play style={{ width: icon * 0.8, height: icon * 0.8 }} fill="currentColor" className="translate-x-px" aria-hidden />
+        )}
+      </IconButton>
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label="מיקום בהקלטה"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(pos)}
+        aria-valuetext={`${fmt(pos * 1000)} מתוך ${fmt(duration * 1000)}`}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          fromPointer(e);
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) fromPointer(e);
+        }}
+        onKeyDown={(e) => {
+          const p = progress.get();
+          if (e.key === "ArrowRight") seek(p + 0.05);
+          else if (e.key === "ArrowLeft") seek(p - 0.05);
+          else if (e.key === " " || e.key === "Enter") toggle();
+          else return;
+          e.preventDefault();
+        }}
+        className="relative flex min-w-0 flex-1 cursor-pointer touch-none select-none items-center rounded-md px-1 outline-none focus-visible:ring-2 focus-visible:ring-ink-500"
+        style={{ height: size * 0.6 }}
+      >
+        <WideBars peaks={peaks} height={size * 0.5} className="text-ink-300/60" />
+        <motion.div className="absolute inset-y-0 left-1 right-1 flex items-center" style={{ clipPath: clip, color: accent }} aria-hidden>
+          <WideBars peaks={peaks} height={size * 0.5} />
+        </motion.div>
+      </div>
+      <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
+        {fmt(pos * 1000)} / {duration ? fmt(duration * 1000) : "–:––"}
+      </span>
+      <a
+        href={url ?? undefined}
+        download={filename}
+        aria-label="הורדת ההקלטה"
+        title="הורדת ההקלטה"
+        className="grid shrink-0 place-items-center rounded-full text-ink-700 outline-none transition-colors hover:bg-ink-50 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-500"
+        style={{ width: inner, height: inner }}
+      >
+        <Download style={{ width: icon * 0.85, height: icon * 0.85 }} aria-hidden />
+      </a>
+    </div>
+  );
+}
+
+/** Bars spread across the whole width (the recorder's own `Bars` keep a fixed gap). */
+function WideBars({ peaks, height, className }: { peaks: number[]; height: number; className?: string }) {
+  return (
+    <div className={cn("flex w-full items-center justify-between", className)} style={{ height }} aria-hidden>
+      {peaks.map((p, i) => (
+        <span key={i} className="shrink-0 rounded-full bg-current" style={{ width: BAR, height: Math.max(BAR, p * height) }} />
+      ))}
+    </div>
+  );
+}

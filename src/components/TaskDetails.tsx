@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
+import { createPortal } from "react-dom";
+import { addTaskEvent, ApiError, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuChevronDown, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
  * One task, opened: edit it, attach files, see the WhatsApp conversation behind
  * it, and open a mail or a meeting about it in the user's own Gmail / Google
- * Calendar, filled in — they send or save it there. Every change is saved as it
- * is made, and noted in the task's history by the server.
+ * Calendar, filled in — they send or save it there. Status, assignee and files
+ * save at once; the title and description save on leaving the field, with
+ * "שמירה", or on closing the task. Each change is noted in the task's history.
  */
 export function TaskDetails({
   task,
@@ -30,16 +32,43 @@ export function TaskDetails({
   const [error, setError] = useState<string | null>(null);
   //: Closed until asked for, so opening a task does not load the whole chat.
   const [showChat, setShowChat] = useState(false);
+  //: The moment the last save went through — "נשמר" shows for a few seconds after.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (!savedAt) return;
+    const timer = window.setTimeout(() => setSavedAt(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [savedAt]);
+  //: The file shown over the task, to look at and download.
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
 
-  async function save(run: () => Promise<Task>, failure: string) {
+  //: What was typed but is not on the server yet.
+  const changes: { title?: string; description?: string } = {};
+  if (title.trim() && title.trim() !== (task.title ?? "")) changes.title = title.trim();
+  if (description !== (task.description ?? "")) changes.description = description;
+  const dirty = Object.keys(changes).length > 0;
+
+  async function save(run: () => Promise<Task>, failure: string): Promise<boolean> {
     setBusy(true);
     try {
       onChange(await run());
       setError(null);
+      setSavedAt(Date.now());
+      return true;
     } catch (exc) {
       setError(exc instanceof ApiError || exc instanceof Error ? exc.message : failure);
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
+  }
+
+  /** Everything typed and not saved yet, in one go. */
+  const saveAll = () => (dirty ? save(() => updateTask(task.id, changes), "השמירה נכשלה.") : Promise.resolve(true));
+
+  /** Closing never drops what was typed: it is saved first, and the task stays open if that fails. */
+  async function close() {
+    if (await saveAll()) onClose();
   }
 
   /** A mail or a meeting about this task, filled in, in the user's own Google account. */
@@ -60,14 +89,16 @@ export function TaskDetails({
 
   /** Files on the task, and those the customer sent on WhatsApp — all attachable to a mail. */
   const files = [
-    ...task.files.map((f) => ({ name: f.name, url: taskMediaUrl(f.key) })),
+    ...task.files.map((f) => previewFile(f.name, f.key)),
     ...task.messages
       .filter((m) => m.media_url)
-      .map((m, i) => ({ name: `קובץ מהלקוח ${i + 1}`, url: taskMediaUrl(m.media_url!) })),
+      .map((m, i) => previewFile(`קובץ מהלקוח ${i + 1}`, m.media_url!)),
   ];
 
   return (
-    <Modal onClose={onClose} size="xl">
+    <Modal onClose={() => void close()} size="xl">
+      {/* A column the height of the panel, so the save bar sits at its bottom even on a short task. */}
+      <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-white px-4 py-4 sm:px-6">
         <input
           value={title}
@@ -80,14 +111,14 @@ export function TaskDetails({
           }
           className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 font-display text-lg font-semibold text-ink-900 outline-none hover:border-line focus:border-ink-300"
         />
-        <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
+        <button onClick={() => void close()} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
           <LuX className="h-5 w-5" />
         </button>
       </div>
 
       {error && <p className="mx-4 mt-4 text-sm text-blocked sm:mx-6">{error}</p>}
 
-      <div className="grid gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
+      <div className="grid flex-1 content-start gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
         <div className="min-w-0 space-y-6">
           {task.link_url && (
             <a
@@ -123,16 +154,15 @@ export function TaskDetails({
           <Section title="קבצים">
             <div className="flex flex-wrap gap-2">
               {files.map((file, i) => (
-                <a
+                <button
                   key={i}
-                  href={file.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
+                  onClick={() => setPreview(file)}
                   className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-900 underline-offset-2 hover:underline"
                 >
                   <LuPaperclip className="h-3.5 w-3.5 shrink-0" />
                   {file.name}
-                </a>
+                </button>
               ))}
               <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-ink-300 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50">
                 <LuPlus className="h-3.5 w-3.5" />
@@ -235,7 +265,146 @@ export function TaskDetails({
           </div>
         </aside>
       </div>
+
+      {/* Always in view at the bottom of the task. */}
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-white px-4 py-3 sm:px-6">
+        {/* Keeps the field focused on press, so leaving it does not save the same text a second time. */}
+        <span onMouseDown={(e) => e.preventDefault()}>
+          <Button onClick={() => void saveAll()} disabled={busy || !dirty}>
+            <LuSave className="h-4 w-4" />
+            שמירה
+          </Button>
+        </span>
+        <span className={`flex items-center gap-1.5 text-sm ${dirty ? "font-semibold text-attention" : "text-muted"}`}>
+          {busy ? (
+            "שומר…"
+          ) : dirty ? (
+            "יש שינויים שלא נשמרו"
+          ) : savedAt ? (
+            <>
+              <LuCheck className="h-4 w-4 text-ink-700" /> נשמר
+            </>
+          ) : (
+            "כל השינויים שמורים"
+          )}
+        </span>
+      </div>
+      </div>
+      {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
     </Modal>
+  );
+}
+
+/** A file to show: its name, where to read it, and where to read it as a PDF. */
+type PreviewFile = { name: string; url: string; pdf: string };
+const previewFile = (name: string, key: string): PreviewFile => ({ name, url: taskMediaUrl(key), pdf: taskMediaPdfUrl(key) });
+
+/** iPhone photos: no browser on Windows shows them, so they are shown as the PDF the server makes. */
+const isHeic = (type: string) => type === "image/heic" || type === "image/heif";
+
+/** What a file's type is saved as, when its name has no extension (WhatsApp files have none). */
+const EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+};
+
+/**
+ * A file over the task: a picture or a PDF shown in place, anything else with
+ * just the download. Read once, behind the console's sign-in, and kept in memory
+ * while it is open, so downloading does not fetch it again.
+ */
+function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
+  const [blob, setBlob] = useState<{ url: string; type: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetch(file.url, { credentials: "include" })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(data);
+        setBlob({ url: objectUrl, type: data.type });
+      })
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.url]);
+
+  // Escape closes the preview only, not the task behind it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
+  const extension = blob && EXTENSIONS[blob.type];
+  const filename = extension && !/\.[a-z0-9]{2,5}$/i.test(file.name) ? `${file.name}.${extension}` : file.name;
+  //: A picture can also be downloaded as a PDF; a PDF already is one, and other files cannot be turned into one.
+  const convertible = !!blob && blob.type.startsWith("image/");
+  const pdfName = `${filename.replace(/\.[a-z0-9]{2,5}$/i, "")}.pdf`;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/60 p-4 sm:p-8"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="flex h-full max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{file.name}</p>
+          {blob && (
+            <a
+              href={blob.url}
+              download={filename}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-3 py-1.5 text-xs font-semibold text-champagne hover:bg-ink-800"
+            >
+              <LuDownload className="h-4 w-4" />
+              הורדה
+            </a>
+          )}
+          {convertible && (
+            <a
+              href={file.pdf}
+              download={pdfName}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-ink-900 bg-white px-3 py-1.5 text-xs font-semibold text-ink-900 hover:bg-paper"
+            >
+              <LuFileText className="h-4 w-4" />
+              הורדה כ-PDF
+            </a>
+          )}
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
+            <LuX className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-paper">
+          {failed ? (
+            <p className="text-sm text-blocked">הקובץ לא זמין.</p>
+          ) : !blob ? (
+            <p className="text-sm text-muted">טוען…</p>
+          ) : isHeic(blob.type) ? (
+            <iframe src={file.pdf} title={file.name} className="h-full w-full" />
+          ) : blob.type.startsWith("image/") ? (
+            <img src={blob.url} alt={file.name} className="max-h-full max-w-full object-contain" />
+          ) : blob.type === "application/pdf" ? (
+            <iframe src={blob.url} title={file.name} className="h-full w-full" />
+          ) : (
+            <p className="text-sm text-muted">אין תצוגה מקדימה לקובץ הזה. אפשר להוריד אותו.</p>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -297,6 +466,7 @@ function Conversation({ taskId }: { taskId: string }) {
 /** WhatsApp-style bubbles — here, and in "שאל את מילו" when he shows a conversation. */
 export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
   const bottom = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "nearest" });
@@ -316,15 +486,14 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
               </p>
               <p className="whitespace-pre-line text-sm leading-relaxed text-ink-900">{message.text}</p>
               {message.media_url && (
-                <a
-                  href={taskMediaUrl(message.media_url)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreview(previewFile("קובץ מהלקוח", message.media_url!))}
                   className="inline-flex items-center gap-1 text-xs text-[#1f7aec] underline underline-offset-2"
                 >
                   <LuPaperclip className="h-3.5 w-3.5" />
                   קובץ
-                </a>
+                </button>
               )}
               <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
             </div>
@@ -332,6 +501,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
         );
       })}
       <div ref={bottom} />
+      {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
