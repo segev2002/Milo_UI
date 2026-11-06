@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
+import { addTaskEvent, ApiError, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
@@ -40,7 +40,7 @@ export function TaskDetails({
     return () => window.clearTimeout(timer);
   }, [savedAt]);
   //: The file shown over the task, to look at and download.
-  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
 
   //: What was typed but is not on the server yet.
   const changes: { title?: string; description?: string } = {};
@@ -89,10 +89,10 @@ export function TaskDetails({
 
   /** Files on the task, and those the customer sent on WhatsApp — all attachable to a mail. */
   const files = [
-    ...task.files.map((f) => ({ name: f.name, url: taskMediaUrl(f.key) })),
+    ...task.files.map((f) => previewFile(f.name, f.key)),
     ...task.messages
       .filter((m) => m.media_url)
-      .map((m, i) => ({ name: `קובץ מהלקוח ${i + 1}`, url: taskMediaUrl(m.media_url!) })),
+      .map((m, i) => previewFile(`קובץ מהלקוח ${i + 1}`, m.media_url!)),
   ];
 
   return (
@@ -295,6 +295,13 @@ export function TaskDetails({
   );
 }
 
+/** A file to show: its name, where to read it, and where to read it as a PDF. */
+type PreviewFile = { name: string; url: string; pdf: string };
+const previewFile = (name: string, key: string): PreviewFile => ({ name, url: taskMediaUrl(key), pdf: taskMediaPdfUrl(key) });
+
+/** iPhone photos: no browser on Windows shows them, so they are shown as the PDF the server makes. */
+const isHeic = (type: string) => type === "image/heic" || type === "image/heif";
+
 /** What a file's type is saved as, when its name has no extension (WhatsApp files have none). */
 const EXTENSIONS: Record<string, string> = {
   "application/pdf": "pdf",
@@ -310,7 +317,7 @@ const EXTENSIONS: Record<string, string> = {
  * just the download. Read once, behind the console's sign-in, and kept in memory
  * while it is open, so downloading does not fetch it again.
  */
-function FilePreview({ file, onClose }: { file: { name: string; url: string }; onClose: () => void }) {
+function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
   const [blob, setBlob] = useState<{ url: string; type: string } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -344,6 +351,9 @@ function FilePreview({ file, onClose }: { file: { name: string; url: string }; o
 
   const extension = blob && EXTENSIONS[blob.type];
   const filename = extension && !/\.[a-z0-9]{2,5}$/i.test(file.name) ? `${file.name}.${extension}` : file.name;
+  //: A picture can also be downloaded as a PDF; a PDF already is one, and other files cannot be turned into one.
+  const convertible = !!blob && blob.type.startsWith("image/");
+  const pdfName = `${filename.replace(/\.[a-z0-9]{2,5}$/i, "")}.pdf`;
 
   return createPortal(
     <div
@@ -363,6 +373,16 @@ function FilePreview({ file, onClose }: { file: { name: string; url: string }; o
               הורדה
             </a>
           )}
+          {convertible && (
+            <a
+              href={file.pdf}
+              download={pdfName}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-ink-900 bg-white px-3 py-1.5 text-xs font-semibold text-ink-900 hover:bg-paper"
+            >
+              <LuFileText className="h-4 w-4" />
+              הורדה כ-PDF
+            </a>
+          )}
           <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
             <LuX className="h-5 w-5" />
           </button>
@@ -372,6 +392,8 @@ function FilePreview({ file, onClose }: { file: { name: string; url: string }; o
             <p className="text-sm text-blocked">הקובץ לא זמין.</p>
           ) : !blob ? (
             <p className="text-sm text-muted">טוען…</p>
+          ) : isHeic(blob.type) ? (
+            <iframe src={file.pdf} title={file.name} className="h-full w-full" />
           ) : blob.type.startsWith("image/") ? (
             <img src={blob.url} alt={file.name} className="max-h-full max-w-full object-contain" />
           ) : blob.type === "application/pdf" ? (
@@ -444,7 +466,7 @@ function Conversation({ taskId }: { taskId: string }) {
 /** WhatsApp-style bubbles — here, and in "שאל את מילו" when he shows a conversation. */
 export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
   const bottom = useRef<HTMLDivElement>(null);
-  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "nearest" });
@@ -466,7 +488,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
               {message.media_url && (
                 <button
                   type="button"
-                  onClick={() => setPreview({ name: "קובץ מהלקוח", url: taskMediaUrl(message.media_url!) })}
+                  onClick={() => setPreview(previewFile("קובץ מהלקוח", message.media_url!))}
                   className="inline-flex items-center gap-1 text-xs text-[#1f7aec] underline underline-offset-2"
                 >
                   <LuPaperclip className="h-3.5 w-3.5" />

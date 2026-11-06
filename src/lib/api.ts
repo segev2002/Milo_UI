@@ -266,6 +266,11 @@ export async function deleteCall(id: string): Promise<void> {
   await request(`${CALLS}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+/** The same file as a PDF — a picture becomes a one-page PDF (see the API's files_pdf). */
+export function taskMediaPdfUrl(mediaUrl: string): string {
+  return url(`/agent/tasks/media/pdf?url=${encodeURIComponent(mediaUrl)}`);
+}
+
 /* --- מעקב משתמשים -------------------------------------------------------- */
 
 /** `since` / `until` are ISO timestamps; both optional. Admins only. */
