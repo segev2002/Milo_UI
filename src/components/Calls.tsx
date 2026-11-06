@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { LuRefreshCw, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
-import { ApiError, deleteCall, getCall, listCalls, uploadCall } from "../lib/api";
+import { LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
+import { ApiError, callAudio, deleteCall, getCall, listCalls, retryCall, uploadCall } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { CallStatus, CallTranscription } from "../types";
-import { AiRecorder } from "./AiRecorder";
+import { AiRecorder, RecordingPlayer } from "./AiRecorder";
 import { Modal } from "./Tasks";
 import { Button, Card, Empty, FIELD, Select, Tag, Typing } from "./ui";
 
@@ -11,8 +11,9 @@ import { Button, Card, Empty, FIELD, Select, Tag, Typing } from "./ui";
  * תמלול שיחות. Sigal's calls are on her phone; the console records them through
  * the computer's microphone, with the phone on speaker beside it. When the call
  * ends the recording goes to Milo, who transcribes all of it first and only then
- * writes the summary. The recording itself is not kept — only the text. One card
- * per call; open it for the summary and the whole transcript.
+ * writes the summary. The recording is kept too, in a folder per client. One card
+ * per call — search them by name, ID or phone; open one for the summary, the
+ * whole transcript and the recording.
  */
 
 const STATUS: Record<CallStatus, { label: string; tone: "neutral" | "warm" | "ink" | "milo" | "claim" }> = {
@@ -38,6 +39,24 @@ function clock(seconds: number | null | undefined): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
+/** The downloaded file's name: the client, the date, and the recording's own type. */
+function recordingName(call: CallTranscription, audio: Blob): string {
+  const t = audio.type;
+  const ext = t.includes("mp4") || t.includes("m4a") ? "m4a" : t.includes("mpeg") ? "mp3" : t.includes("ogg") ? "ogg" : "webm";
+  return `${[call.client_name, call.id_number].filter(Boolean).join(" - ")} ${call.created_at.slice(0, 10)}.${ext}`;
+}
+
+/** Digits only, so "052-674 7180" finds 0526747180. */
+const digits = (s: string) => s.replace(/\D/g, "");
+
+function matches(c: CallTranscription, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (c.client_name.toLowerCase().includes(q)) return true;
+  const d = digits(q);
+  return !!d && [c.phone, c.id_number].some((v) => v && digits(v).includes(d));
+}
+
 const dateTime = (iso: string) =>
   new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -45,6 +64,7 @@ export function Calls() {
   const [calls, setCalls] = useCached<CallTranscription[] | null>("calls.list", null);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [query, setQuery] = useCached("calls.query", "");
 
   const refresh = useCallback(async () => {
     try {
@@ -68,6 +88,7 @@ export function Calls() {
   }, [busy, refresh]);
 
   const added = (call: CallTranscription) => setCalls((prev) => [call, ...(prev ?? [])]);
+  const shown = (calls ?? []).filter((c) => matches(c, query));
 
   async function remove(id: string) {
     try {
@@ -89,13 +110,24 @@ export function Calls() {
         </p>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-base font-bold text-ink-900">שיחות</h2>
+        <label className="relative w-full max-w-xs">
+          <LuSearch className="pointer-events-none absolute inset-y-0 right-3 my-auto h-4 w-4 text-muted" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="חיפוש לפי שם, ת.ז או טלפון"
+            aria-label="חיפוש שיחות"
+            className={`${FIELD} py-2 pr-9 text-sm`}
+          />
+        </label>
         <button
           onClick={() => void refresh()}
           title="רענון"
           aria-label="רענון"
-          className="rounded-lg border border-line bg-white p-2 text-ink-700 transition-colors hover:bg-paper"
+          className="mr-auto rounded-lg border border-line bg-white p-2 text-ink-700 transition-colors hover:bg-paper"
         >
           <LuRefreshCw className="h-4 w-4" />
         </button>
@@ -107,9 +139,13 @@ export function Calls() {
         <Card>
           <Empty title="אין עדיין שיחות" hint="שימו את הטלפון על רמקול ליד המחשב ולחצו ״התחלת הקלטה״." />
         </Card>
+      ) : shown.length === 0 ? (
+        <Card>
+          <Empty title="לא נמצאו שיחות" hint={`אין שיחה שמתאימה ל"${query.trim()}".`} />
+        </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {calls.map((c) => (
+          {shown.map((c) => (
             <CallCard key={c.id} call={c} onOpen={() => setOpenId(c.id)} onDelete={() => remove(c.id)} />
           ))}
         </div>
@@ -151,7 +187,7 @@ function CallCard({ call: c, onOpen, onDelete }: { call: CallTranscription; onOp
       <div className="flex min-h-11 items-center justify-between gap-2 border-t border-line px-4 py-1.5 text-xs">
         {confirming ? (
           <>
-            <span className="font-semibold text-blocked">למחוק את השיחה?</span>
+            <span className="font-semibold text-blocked">למחוק את השיחה וההקלטה?</span>
             <span className="flex gap-1.5">
               <button
                 disabled={deleting}
@@ -205,6 +241,12 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
   const [pending, setPending] = useState<{ audio: Blob; filename: string; ms: number } | null>(null);
   //: The details form: who the call was with.
   const [asking, setAsking] = useState(false);
+  //: Which of the two sends was chosen: with the recording kept, or only its text.
+  const [keepAudio, setKeepAudio] = useState(true);
+  const ask = (keep: boolean) => {
+    setKeepAudio(keep);
+    setAsking(true);
+  };
   const [uploading, setUploading] = useState(false);
   //: A new key starts the recorder over, empty — after a recording was sent.
   const [round, setRound] = useState(0);
@@ -249,7 +291,7 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
           client_name: client.client_name.trim(),
           phone: client.phone.trim(),
           id_number: client.id_number.trim(),
-        }),
+        }, keepAudio),
       );
       setClient({ client_name: "", phone: "", id_number: "" });
       setPending(null);
@@ -267,7 +309,6 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
     if (fileInput.current) fileInput.current.value = "";
     if (!file) return;
     setPending({ audio: file, filename: file.name, ms: 0 });
-    setAsking(true);
   }
 
   const field = (
@@ -317,10 +358,16 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
           />
         )}
         {pending && !uploading && (
-          <Button onClick={() => setAsking(true)}>
-            <LuSend className="h-4 w-4" />
-            שליחה למילו
-          </Button>
+          <>
+            <Button onClick={() => ask(true)}>
+              <LuSend className="h-4 w-4" />
+              שליחה למילו עם ההקלטה
+            </Button>
+            <Button variant="ghost" onClick={() => ask(false)}>
+              <LuSend className="h-4 w-4" />
+              שליחה למילו בלי ההקלטה
+            </Button>
+          </>
         )}
         {uploading && (
           <span className="flex items-center gap-2 text-sm text-muted">
@@ -348,8 +395,8 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
         )}
       </div>
       <p className="mt-3 text-xs text-muted">
-        שימו את הטלפון על רמקול, קרוב למחשב. בסיום אפשר להאזין להקלטה או למחוק אותה, ואז לשלוח למילו. אל תסגרו את הדף עד
-        שההקלטה נשלחת. ההקלטה עצמה לא נשמרת — רק התמלול והסיכום.
+        שימו את הטלפון על רמקול, קרוב למחשב. בסיום אפשר להאזין להקלטה או למחוק אותה, ואז לשלוח למילו — עם ההקלטה (נשמרת
+        בתיקייה של הלקוח ואפשר להאזין לה מכרטיס השיחה) או בלי (נשמרים רק התמלול והסיכום). אל תסגרו את הדף עד שההקלטה נשלחת.
       </p>
 
       {asking && pending && (
@@ -363,11 +410,14 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
           >
             <div>
               <h2 className="font-display text-2xl font-semibold text-ink-900">עם מי הייתה השיחה?</h2>
-              {pending.ms > 0 && (
-                <p className="mt-1 text-sm text-muted">
-                  הקלטה של <span dir="ltr">{clock(pending.ms / 1000)}</span>
-                </p>
-              )}
+              <p className="mt-1 text-sm text-muted">
+                {pending.ms > 0 && (
+                  <>
+                    הקלטה של <span dir="ltr">{clock(pending.ms / 1000)}</span> ·{" "}
+                  </>
+                )}
+                {keepAudio ? "ההקלטה תישמר בתיקייה של הלקוח" : "ההקלטה לא תישמר — רק התמלול והסיכום"}
+              </p>
             </div>
             <div className="space-y-4">
               {field("client_name", "שם הלקוח", {}, true)}
@@ -378,7 +428,7 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
             </div>
             <div className="flex gap-2 border-t border-line pt-5">
               <Button type="submit" disabled={!client.client_name.trim()}>
-                שליחה למילו
+                {keepAudio ? "שליחה למילו עם ההקלטה" : "שליחה למילו בלי ההקלטה"}
               </Button>
               <Button variant="ghost" onClick={() => setAsking(false)}>
                 אחר כך
@@ -404,6 +454,8 @@ function CallDetails({
 }) {
   const [call, setCall] = useState<CallTranscription | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [audio, setAudio] = useState<Blob | null>(null);
+  const hasAudio = !!call?.audio_key;
 
   const load = useCallback(async () => {
     try {
@@ -424,6 +476,25 @@ function CallDetails({
     return () => window.clearTimeout(timer);
   }, [call, load]);
 
+  //: The recording, fetched once the call says it has one.
+  useEffect(() => {
+    if (!hasAudio) return;
+    callAudio(id)
+      .then(setAudio)
+      .catch(() => setError("ההקלטה לא זמינה."));
+  }, [id, hasAudio]);
+
+  async function retry() {
+    try {
+      const fresh = await retryCall(id);
+      setCall(fresh);
+      onChange(fresh);
+      setError(null);
+    } catch (exc) {
+      setError(message(exc, "לא הצלחתי להתחיל מחדש."));
+    }
+  }
+
   return (
     <Modal onClose={onClose} size="lg">
       <div className="space-y-5 p-5 sm:p-8">
@@ -431,10 +502,21 @@ function CallDetails({
           <div>
             <h2 className="font-display text-2xl font-semibold text-ink-900">{call?.client_name ?? "…"}</h2>
             {call && (
-              <p className="mt-1 text-sm text-muted">
-                {dateTime(call.created_at)}
-                {call.duration_seconds ? <span dir="ltr"> · {clock(call.duration_seconds)}</span> : null}
-                {(call.phone || call.id_number) && <span dir="ltr"> · {[call.phone, call.id_number].filter(Boolean).join(" · ")}</span>}
+              // Each piece on its own, so a time and a length never run into each other.
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                {[
+                  dateTime(call.created_at),
+                  call.duration_seconds ? `משך ${clock(call.duration_seconds)}` : null,
+                  call.phone,
+                  call.id_number ? `ת.ז ${call.id_number}` : null,
+                ]
+                  .filter((v): v is string => !!v)
+                  .map((v, i) => (
+                    <span key={v} className="flex items-center gap-2">
+                      {i > 0 && <span aria-hidden>·</span>}
+                      <bdi>{v}</bdi>
+                    </span>
+                  ))}
               </p>
             )}
           </div>
@@ -453,10 +535,28 @@ function CallDetails({
 
         {error && <p className="text-sm text-blocked">{error}</p>}
 
+        {hasAudio && (
+          <Section title="ההקלטה">
+            {audio ? (
+              <RecordingPlayer blob={audio} filename={recordingName(call!, audio)} />
+            ) : (
+              <p className="text-sm text-muted">טוען את ההקלטה…</p>
+            )}
+          </Section>
+        )}
+
         {call?.status === "failed" && (
-          <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-sm text-blocked">
-            {call.error || "העיבוד נכשל."} ההקלטה לא נשמרת, אז צריך להקליט את השיחה מחדש.
-          </p>
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-sm text-blocked">
+            <span>{call.error || "העיבוד נכשל."}</span>
+            {hasAudio ? (
+              <Button size="sm" variant="ghost" onClick={() => void retry()}>
+                <LuRotateCcw className="h-3.5 w-3.5" />
+                לנסות שוב
+              </Button>
+            ) : (
+              <span>אין הקלטה שמורה, אז צריך להקליט את השיחה מחדש.</span>
+            )}
+          </div>
         )}
 
         <Section title="סיכום">

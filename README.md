@@ -31,7 +31,7 @@ uvicorn api.main:app --reload      # GOOGLE_CLIENT_ID must be set in its .env
 The client id is fetched from `GET /auth/config` rather than baked into the
 bundle, so the console can be rebuilt without it and a changed id is a server
 setting. Vite proxies `/agent`, `/auth` and `/health` to `MILO_API_URL`
-(`http://localhost:8000` by default) — leave **API base URL** empty in
+(`http://localhost:8001` by default — the backend `npm run api` starts) — leave **API base URL** empty in
 development, and put the API's origin there for a deployed one.
 
 **Signing in with a token instead.** The sign-in page keeps a second path, for a
