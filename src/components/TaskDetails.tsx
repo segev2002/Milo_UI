@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { addTaskEvent, ApiError, taskConversation, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuChevronDown, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuCheck, LuChevronDown, LuExternalLink, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
  * One task, opened: edit it, attach files, see the WhatsApp conversation behind
  * it, and open a mail or a meeting about it in the user's own Gmail / Google
- * Calendar, filled in — they send or save it there. Every change is saved as it
- * is made, and noted in the task's history by the server.
+ * Calendar, filled in — they send or save it there. Status, assignee and files
+ * save at once; the title and description save on leaving the field, with
+ * "שמירה", or on closing the task. Each change is noted in the task's history.
  */
 export function TaskDetails({
   task,
@@ -30,16 +31,41 @@ export function TaskDetails({
   const [error, setError] = useState<string | null>(null);
   //: Closed until asked for, so opening a task does not load the whole chat.
   const [showChat, setShowChat] = useState(false);
+  //: The moment the last save went through — "נשמר" shows for a few seconds after.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (!savedAt) return;
+    const timer = window.setTimeout(() => setSavedAt(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [savedAt]);
 
-  async function save(run: () => Promise<Task>, failure: string) {
+  //: What was typed but is not on the server yet.
+  const changes: { title?: string; description?: string } = {};
+  if (title.trim() && title.trim() !== (task.title ?? "")) changes.title = title.trim();
+  if (description !== (task.description ?? "")) changes.description = description;
+  const dirty = Object.keys(changes).length > 0;
+
+  async function save(run: () => Promise<Task>, failure: string): Promise<boolean> {
     setBusy(true);
     try {
       onChange(await run());
       setError(null);
+      setSavedAt(Date.now());
+      return true;
     } catch (exc) {
       setError(exc instanceof ApiError || exc instanceof Error ? exc.message : failure);
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
+  }
+
+  /** Everything typed and not saved yet, in one go. */
+  const saveAll = () => (dirty ? save(() => updateTask(task.id, changes), "השמירה נכשלה.") : Promise.resolve(true));
+
+  /** Closing never drops what was typed: it is saved first, and the task stays open if that fails. */
+  async function close() {
+    if (await saveAll()) onClose();
   }
 
   /** A mail or a meeting about this task, filled in, in the user's own Google account. */
@@ -67,7 +93,9 @@ export function TaskDetails({
   ];
 
   return (
-    <Modal onClose={onClose} size="xl">
+    <Modal onClose={() => void close()} size="xl">
+      {/* A column the height of the panel, so the save bar sits at its bottom even on a short task. */}
+      <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-white px-4 py-4 sm:px-6">
         <input
           value={title}
@@ -80,14 +108,14 @@ export function TaskDetails({
           }
           className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 font-display text-lg font-semibold text-ink-900 outline-none hover:border-line focus:border-ink-300"
         />
-        <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
+        <button onClick={() => void close()} className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900" aria-label="סגירה">
           <LuX className="h-5 w-5" />
         </button>
       </div>
 
       {error && <p className="mx-4 mt-4 text-sm text-blocked sm:mx-6">{error}</p>}
 
-      <div className="grid gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
+      <div className="grid flex-1 content-start gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
         <div className="min-w-0 space-y-6">
           {task.link_url && (
             <a
@@ -234,6 +262,31 @@ export function TaskDetails({
             </Button>
           </div>
         </aside>
+      </div>
+
+      {/* Always in view at the bottom of the task. */}
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-white px-4 py-3 sm:px-6">
+        {/* Keeps the field focused on press, so leaving it does not save the same text a second time. */}
+        <span onMouseDown={(e) => e.preventDefault()}>
+          <Button onClick={() => void saveAll()} disabled={busy || !dirty}>
+            <LuSave className="h-4 w-4" />
+            שמירה
+          </Button>
+        </span>
+        <span className={`flex items-center gap-1.5 text-sm ${dirty ? "font-semibold text-attention" : "text-muted"}`}>
+          {busy ? (
+            "שומר…"
+          ) : dirty ? (
+            "יש שינויים שלא נשמרו"
+          ) : savedAt ? (
+            <>
+              <LuCheck className="h-4 w-4 text-ink-700" /> נשמר
+            </>
+          ) : (
+            "כל השינויים שמורים"
+          )}
+        </span>
+      </div>
       </div>
     </Modal>
   );

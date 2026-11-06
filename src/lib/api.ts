@@ -233,19 +233,35 @@ export async function getCall(id: string): Promise<CallTranscription> {
   return request<CallTranscription>(`${CALLS}/${encodeURIComponent(id)}`);
 }
 
-/** The recording, and who the call was with. The server transcribes, then summarises, in the background,
-    and keeps only the text — the recording itself is not stored. */
+/** The recording, and who the call was with. The server keeps the recording in a folder per client,
+    then transcribes and summarises it in the background. */
 export async function uploadCall(
   audio: Blob,
   filename: string,
   client: { client_name: string; phone?: string; id_number?: string },
+  keepAudio = true,
 ): Promise<CallTranscription> {
   const form = new FormData();
   form.append("audio", audio, filename);
   for (const [key, value] of Object.entries(client)) if (value) form.append(key, value);
+  // Without it, the server transcribes from memory and keeps only the text.
+  form.append("keep_audio", String(keepAudio));
   return request<CallTranscription>(CALLS, { method: "POST", body: form });
 }
 
+/** Start a failed call over, from its saved recording. */
+export async function retryCall(id: string): Promise<CallTranscription> {
+  return request<CallTranscription>(`${CALLS}/${encodeURIComponent(id)}/retry`, { method: "POST" });
+}
+
+/** The recording, as a blob — so the player can seek in it. Same-origin, so the cookie goes with it. */
+export async function callAudio(id: string): Promise<Blob> {
+  const response = await fetch(url(`${CALLS}/${encodeURIComponent(id)}/audio`));
+  if (!response.ok) throw new ApiError("ההקלטה לא זמינה.", response.status);
+  return response.blob();
+}
+
+/** The call and its recording. */
 export async function deleteCall(id: string): Promise<void> {
   await request(`${CALLS}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

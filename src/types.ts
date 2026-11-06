@@ -441,6 +441,7 @@ export interface CallTranscription {
   id_number: string | null;
   duration_seconds: number | null;
   status: CallStatus;
+  audio_key: string | null;
   error: string | null;
   created_by: string | null;
   created_at: string;
