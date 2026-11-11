@@ -1,0 +1,17 @@
+{
+  "name": "מילו — סוכנות הביטוח של סיגל",
+  "short_name": "מילו",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/tasks",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6efe3",
+  "theme_color": "#064e3b",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

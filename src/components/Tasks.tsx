@@ -459,16 +459,22 @@ export function Modal({
   return createPortal(
     <div
       ref={backdrop}
-      className="fixed inset-0 z-50 flex items-center justify-center overscroll-none bg-ink-950/40 sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-ink-950/40 sm:items-center sm:p-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      {/* Full screen on a phone. The panel scrolls inside itself; "xl" fills the screen's height. */}
+      {/* On a phone, a sheet up from the bottom with a grip; from sm up, a centred panel.
+          The panel scrolls inside itself; "xl" fills the screen's height. */}
       <div
-        className={`h-full w-full overflow-y-auto overscroll-contain bg-white shadow-xl sm:max-h-full sm:rounded-2xl ${
-          { md: "sm:h-auto sm:max-w-lg", lg: "sm:h-auto sm:max-w-4xl", xl: "sm:max-w-7xl" }[size]
+        className={`milo-sheet flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl sm:max-h-full sm:rounded-2xl ${
+          { md: "sm:max-w-lg", lg: "sm:max-w-4xl", xl: "h-[94dvh] sm:h-full sm:max-w-7xl" }[size]
         }`}
       >
+        <div className="flex shrink-0 justify-center pb-1 pt-2 sm:hidden" aria-hidden="true">
+          <span className="h-1.5 w-11 rounded-full bg-ink-300/60" />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] sm:pb-0">
         {children}
+        </div>
       </div>
     </div>,
     document.body,
