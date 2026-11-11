@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { LuMenu, LuPanelRightClose, LuPanelRightOpen } from "react-icons/lu";
+import { LuPanelRightClose, LuPanelRightOpen } from "react-icons/lu";
 import { SiGmail, SiGooglecalendar } from "react-icons/si";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import { health as fetchHealth, listTasks, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
@@ -10,6 +10,7 @@ import { Calls } from "./components/Calls";
 import { Chat } from "./components/Chat";
 import { Intro } from "./components/Intro";
 import { Login } from "./components/Login";
+import { MobileTabBar } from "./components/MobileTabBar";
 import { DesktopNotificationsPrompt } from "./components/Notifications";
 import { Playbook } from "./components/Playbook";
 import { Sales } from "./components/Sales";
@@ -178,12 +179,13 @@ export default function App() {
     );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    // dvh: a phone's browser bars are not counted, so nothing hides behind them. The notch's inset on top.
+    <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)]">
     {intro && <Intro name={me.display_name} onDone={endIntro} />}
     {!intro && <DesktopNotificationsPrompt name={me.display_name} />}
     <DevBanner />
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      {menuOpen && <div className="fixed inset-0 z-40 bg-ink-950/40 md:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-[45] bg-ink-950/40 md:hidden" onClick={() => setMenuOpen(false)} />}
       <Sidebar
         view={view}
         onChange={(next) => {
@@ -199,7 +201,8 @@ export default function App() {
         }}
         collapsed={collapsed}
         onClose={() => setMenuOpen(false)}
-        className={`fixed inset-y-0 right-0 z-50 md:static md:translate-x-0 ${
+        // On a phone the drawer runs edge to edge: clear of the notch and the home bar.
+        className={`fixed inset-y-0 right-0 z-50 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] md:static md:translate-x-0 md:p-0 ${
           menuOpen ? "translate-x-0" : "translate-x-full"
         }`}
       />
@@ -214,16 +217,8 @@ export default function App() {
         >
           {collapsed ? <LuPanelRightOpen className="h-4 w-4" /> : <LuPanelRightClose className="h-4 w-4" />}
         </button>
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-4 pb-5 pt-5 md:px-8 md:pt-7">
+        <header className="flex shrink-0 items-center justify-between gap-3 px-4 pb-4 pt-4 md:flex-wrap md:gap-4 md:px-8 md:pb-5 md:pt-7">
           <div className="flex items-center gap-3">
-            {/* A phone has no sidebar, only this drawer. */}
-            <button
-              onClick={() => setMenuOpen(true)}
-              aria-label="תפריט"
-              className="rounded-lg bg-ink-900 p-2 text-champagne transition-colors hover:bg-ink-800 md:hidden"
-            >
-              <LuMenu className="h-5 w-5" />
-            </button>
             <div>
             <h1 className="font-display text-[26px] font-semibold leading-none text-ink-900">
               {head.title}
@@ -260,8 +255,9 @@ export default function App() {
           data-scroll-root
           className={
             view === "chat"
-              ? "min-h-0 flex-1 overflow-hidden px-4 pb-4 md:px-8 md:pb-6"
-              : "min-h-0 flex-1 overflow-y-auto px-4 pb-10 md:px-8"
+              ? "min-h-0 flex-1 overflow-hidden px-4 pb-[calc(90px+env(safe-area-inset-bottom))] md:px-8 md:pb-6"
+              : // On a phone, room at the bottom for the tab bar.
+                "min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(100px+env(safe-area-inset-bottom))] md:px-8 md:pb-10"
           }
         >
           <Routes>
@@ -290,6 +286,7 @@ export default function App() {
         </div>
       </main>
     </div>
+    <MobileTabBar view={view} me={me} onChange={(next) => navigate(`/${next}`)} onMore={() => setMenuOpen(true)} />
     </div>
   );
 }
@@ -298,10 +295,12 @@ function GoogleApp({ onClick, label, icon }: { onClick: () => void; label: strin
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-paper"
+      aria-label={label}
+      className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-2.5 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-paper sm:px-3"
     >
       {icon}
-      {label}
+      {/* Just the logo on a phone. */}
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }

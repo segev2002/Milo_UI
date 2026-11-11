@@ -2,8 +2,22 @@
 <html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ICO: every browser's tab and bookmarks, Safari too (an SVG alone shows them the
+         letter "M"). ?v= makes browsers fetch it anew. Home-screen icons: apple-touch-icon
+         below, and the manifest's 192/512. -->
+    <link rel="icon" href="/favicon.ico?v=3" sizes="16x16 32x32 48x48" />
+    <!-- On a phone it behaves like an app: no pinch-zoom, edge to edge under the notch. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- "default", not black-translucent: drawn under the status bar, iOS cuts the page
+         short by the bar's height and leaves an empty strip at the bottom. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="מילו" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#064e3b" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=3" />
     <title>מילו — סוכנות הביטוח של סיגל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

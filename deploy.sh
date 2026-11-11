@@ -26,7 +26,7 @@ fi
 [ -f dist/index.html ] || { echo "dist/index.html is missing — run without --no-build" >&2; exit 1; }
 
 # Vite's hashed files (dist/assets/) can be cached forever: a change is a new
-# name. Everything else keeps its name across deploys (favicon.svg, milo.png,
+# name. Everything else keeps its name across deploys (favicon.ico, milo.png,
 # logos, chat.html), so it is cached for an hour — cached forever, an old
 # favicon stayed in browsers after it was replaced. index.html cannot be cached
 # at all: it is the file that names the new hashes.

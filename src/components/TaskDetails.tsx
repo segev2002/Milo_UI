@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { addTaskEvent, ApiError, renameTaskFile, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
@@ -42,6 +42,14 @@ export function TaskDetails({
   }, [savedAt]);
   //: The file shown over the task, to look at and download.
   const [preview, setPreview] = useState<PreviewFile | null>(null);
+  //: The description grows with its text, so a long one is read whole, never scrolled in a box.
+  const descriptionBox = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const box = descriptionBox.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight + 2}px`;
+  }, [description]);
   //: The file whose name is being typed (its key), and the name so far.
   const [renaming, setRenaming] = useState<{ key: string; name: string } | null>(null);
 
@@ -153,6 +161,7 @@ export function TaskDetails({
 
           <Section title="תיאור">
             <textarea
+              ref={descriptionBox}
               rows={4}
               value={description}
               placeholder="הוסיפו תיאור…"
@@ -161,7 +170,7 @@ export function TaskDetails({
                 description !== (task.description ?? "") &&
                 void save(() => updateTask(task.id, { description }), "שמירת התיאור נכשלה.")
               }
-              className={FIELD}
+              className={`${FIELD} resize-none overflow-hidden leading-relaxed`}
             />
           </Section>
 

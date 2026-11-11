@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./liquid-glass.css";
+@import "./mobile.css";
 
 @theme {
   --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
