@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { addTaskEvent, ApiError, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
+import { addTaskEvent, ApiError, renameTaskFile, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
 import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
+import { FileText, Pencil } from "lucide-react";
 import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
@@ -41,6 +42,19 @@ export function TaskDetails({
   }, [savedAt]);
   //: The file shown over the task, to look at and download.
   const [preview, setPreview] = useState<PreviewFile | null>(null);
+  //: The file whose name is being typed (its key), and the name so far.
+  const [renaming, setRenaming] = useState<{ key: string; name: string } | null>(null);
+
+  /** Saves the typed name; a name typed without the extension keeps the file's own. */
+  function rename(file: PreviewFile) {
+    if (!renaming) return;
+    const extension = file.name.match(/\.[a-z0-9]{2,5}$/i)?.[0] ?? "";
+    let name = renaming.name.trim();
+    setRenaming(null);
+    if (!name || name === file.name) return;
+    if (extension && !/\.[a-z0-9]{2,5}$/i.test(name)) name += extension;
+    void save(() => renameTaskFile(task.id, file.key, name), "שינוי השם נכשל.");
+  }
 
   //: What was typed but is not on the server yet.
   const changes: { title?: string; description?: string } = {};
@@ -92,7 +106,7 @@ export function TaskDetails({
     ...task.files.map((f) => previewFile(f.name, f.key)),
     ...task.messages
       .filter((m) => m.media_url)
-      .map((m, i) => previewFile(`קובץ מהלקוח ${i + 1}`, m.media_url!)),
+      .map((m, i) => previewFile(m.media_name || `קובץ מהלקוח ${i + 1}`, m.media_url!)),
   ];
 
   return (
@@ -153,19 +167,60 @@ export function TaskDetails({
 
           <Section title="קבצים">
             <div className="flex flex-wrap gap-2">
-              {files.map((file, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setPreview(file)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-900 underline-offset-2 hover:underline"
-                >
-                  <LuPaperclip className="h-3.5 w-3.5 shrink-0" />
-                  {file.name}
-                </button>
-              ))}
-              <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-ink-300 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50">
-                <LuPlus className="h-3.5 w-3.5" />
+              {files.map((file, i) =>
+                renaming?.key === file.key ? (
+                  <input
+                    key={i}
+                    autoFocus
+                    value={renaming.name}
+                    onChange={(e) => setRenaming({ key: file.key, name: e.target.value })}
+                    onBlur={() => rename(file)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") {
+                        // Cancels the name only, not the task behind it.
+                        e.nativeEvent.stopPropagation();
+                        setRenaming(null);
+                      }
+                    }}
+                    aria-label="שם הקובץ"
+                    className="h-[50px] w-64 rounded-xl border border-ink-300 bg-white px-3 text-sm text-ink-900 outline-none"
+                  />
+                ) : (
+                  <div
+                    key={i}
+                    draggable
+                    onDragStart={(e) => dragFile(e, file)}
+                    className="inline-flex max-w-full cursor-grab items-center rounded-xl border border-line bg-white transition hover:border-ink-300 hover:shadow-sm active:cursor-grabbing"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPreview(file)}
+                      title="לחיצה לתצוגה · גרירה לאתר או לתיקייה"
+                      className="inline-flex min-w-0 items-center gap-2.5 py-1.5 pl-1 pr-1.5 text-right"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blocked/10 text-blocked">
+                        <FileText className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block max-w-[14rem] truncate text-sm font-medium text-ink-900">{file.name}</span>
+                        <span className="block text-[11px] text-muted">{dragAs(file).label}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setRenaming({ key: file.key, name: file.name })}
+                      className="ml-1.5 rounded-md p-1.5 text-muted hover:bg-paper hover:text-ink-900"
+                      aria-label={`שינוי השם של ${file.name}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ),
+              )}
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-ink-300 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50">
+                <LuPlus className="h-4 w-4" />
                 צירוף קובץ
                 <input
                   type="file"
@@ -295,9 +350,34 @@ export function TaskDetails({
   );
 }
 
-/** A file to show: its name, where to read it, and where to read it as a PDF. */
-type PreviewFile = { name: string; url: string; pdf: string };
-const previewFile = (name: string, key: string): PreviewFile => ({ name, url: taskMediaUrl(key), pdf: taskMediaPdfUrl(key) });
+/** A file to show: its name, its key on the task, where to read it, and where to read it as a PDF. */
+type PreviewFile = { name: string; key: string; url: string; pdf: string };
+const previewFile = (name: string, key: string): PreviewFile => ({ name, key, url: taskMediaUrl(key), pdf: taskMediaPdfUrl(key) });
+
+/** Extensions the server turns into a PDF (see the API's files_pdf). */
+const PDF_ABLE = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
+
+/**
+ * How a file leaves the console when dragged: a PDF or a picture as a PDF, anything
+ * else as it is. WhatsApp files have no extension, and are pictures or PDFs.
+ */
+function dragAs(file: PreviewFile): { name: string; url: string; type: string; label: string } {
+  const extension = file.name.match(/\.([a-z0-9]{2,5})$/i)?.[1].toLowerCase();
+  if (!extension || PDF_ABLE.includes(extension))
+    return { name: `${file.name.replace(/\.[a-z0-9]{2,5}$/i, "")}.pdf`, url: file.pdf, type: "application/pdf", label: "PDF" };
+  return { name: file.name, url: file.url, type: "application/octet-stream", label: extension.toUpperCase() };
+}
+
+/**
+ * Drag a file out of the console, as in WhatsApp Web: Chrome / Edge download it
+ * where it is dropped (`DownloadURL`), with the session cookie, like any download.
+ */
+function dragFile(e: DragEvent, file: PreviewFile) {
+  const { name, url, type } = dragAs(file);
+  e.dataTransfer.effectAllowed = "copy";
+  // `type:name:url` — a colon in the name would break it.
+  e.dataTransfer.setData("DownloadURL", `${type}:${name.replace(/:/g, "-")}:${new URL(url, location.href).href}`);
+}
 
 /** iPhone photos: no browser on Windows shows them, so they are shown as the PDF the server makes. */
 const isHeic = (type: string) => type === "image/heic" || type === "image/heif";
@@ -399,7 +479,7 @@ function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void
           ) : blob.type === "application/pdf" ? (
             <iframe src={blob.url} title={file.name} className="h-full w-full" />
           ) : (
-            <p className="text-sm text-muted">אין תצוגה מקדימה לקובץ הזה. אפשר להוריד אותו.</p>
+            <p className="text-sm text-muted">אין תצוגה מקדימה.</p>
           )}
         </div>
       </div>
@@ -418,6 +498,8 @@ function describe(event: Task["events"][number], people: Person[]): string {
       return event.text ? `שייך/ה ל${personName(people, event.text)}` : "הסיר/ה את השיוך";
     case "file":
       return `צירף/ה את ${event.text}`;
+    case "file_rename":
+      return `שינה/תה שם של קובץ: ${event.text}`;
     case "email":
       return event.text ? `פתח/ה מייל ב-Gmail: ${event.text}` : "פתח/ה מייל ב-Gmail";
     case "meeting":

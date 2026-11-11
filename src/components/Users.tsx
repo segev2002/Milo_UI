@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, addUser, listUsers, removeUser, renameUser } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { AllowedUser, Identity } from "../types";
-import { Button, Card, CardHead, Empty, Tag, when } from "./ui";
+import { LuPencil, LuTrash, LuUserPlus } from "react-icons/lu";
+import { Modal } from "./Tasks";
+import { Button, Card, CardHead, confirmDialog, Empty, Tag, when } from "./ui";
 
 /**
  * The allowlist, and the only screen that writes to it.
@@ -23,6 +25,10 @@ export function Users({ me }: { me: Identity }) {
   const [isAdmin, setIsAdmin] = useCached("users.draft.admin", false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  //: The "הוסף משתמש" dialog.
+  const [adding, setAdding] = useState(false);
+  //: The user open in the pencil's dialog: their name and whether they are an admin.
+  const [editing, setEditing] = useState<{ email: string; name: string; isAdmin: boolean } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -47,6 +53,7 @@ export function Users({ me }: { me: Identity }) {
       setEmail("");
       setName("");
       setIsAdmin(false);
+      setAdding(false);
       await refresh();
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : "ההוספה נכשלה.");
@@ -56,7 +63,7 @@ export function Users({ me }: { me: Identity }) {
   }
 
   async function remove(address: string) {
-    if (!confirm(`להסיר את ${address}? הגישה שלו לקונסולה תיפסק בכניסה הבאה, תוך 12 שעות לכל היותר.`)) return;
+    if (!(await confirmDialog({ title: `להסיר את ${address}?`, confirmLabel: "הסרה", danger: true }))) return;
     setBusy(true);
     setError(null);
     try {
@@ -69,97 +76,158 @@ export function Users({ me }: { me: Identity }) {
     }
   }
 
-  /** Saved when the field is left; tasks and their history show this name. */
-  async function rename(address: string, value: string) {
+  /** The pencil's dialog: the name tasks and their history show, and admin or not. */
+  async function saveEdit() {
+    if (!editing || busy) return;
+    setBusy(true);
     setError(null);
     try {
-      const row = await renameUser(address, value.trim());
-      setUsers((prev) => prev.map((user) => (user.email === address ? { ...user, ...row } : user)));
+      const row = await renameUser(editing.email, editing.name.trim(), editing.isAdmin);
+      setUsers((prev) => prev.map((user) => (user.email === editing.email ? { ...user, ...row } : user)));
+      setEditing(null);
     } catch (exc) {
-      setError(exc instanceof ApiError ? exc.message : "שמירת השם נכשלה.");
+      setError(exc instanceof ApiError ? exc.message : "השמירה נכשלה.");
+    } finally {
+      setBusy(false);
     }
   }
 
   const active = users.filter((user) => user.active);
 
+  const errorBox = error && (
+    <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+      {error}
+    </p>
+  );
+
   return (
     <div className="space-y-5">
-      <Card>
-        <CardHead
-          hint="מי שתוסיפו נכנס עם Google, או עם האימייל וסיסמה: בכניסה הראשונה הוא מקבל קוד למייל ובוחר סיסמה."
-        />
-        <div className="flex flex-wrap items-end gap-3 px-5 py-5">
-          <div className="min-w-[200px] flex-1">
-            <label htmlFor="new-user-name" className="block text-xs font-medium text-ink-900">
-              שם מלא
+      {!adding && !editing && errorBox}
+
+      {editing && (
+        <Modal onClose={() => setEditing(null)}>
+          <div className="space-y-4 p-6">
+            <h2 className="font-display text-lg font-semibold text-ink-900">עריכת משתמש</h2>
+            <p className="truncate text-right text-xs text-muted" dir="ltr">
+              {editing.email}
+            </p>
+            <div>
+              <label htmlFor="edit-user-name" className="block text-xs font-medium text-ink-900">
+                שם מלא
+              </label>
+              <input
+                id="edit-user-name"
+                autoFocus
+                value={editing.name}
+                onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                onKeyDown={(event) => event.key === "Enter" && void saveEdit()}
+                className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-body">
+              <input
+                type="checkbox"
+                checked={editing.isAdmin}
+                disabled={editing.email === me.email}
+                onChange={(event) => setEditing({ ...editing, isAdmin: event.target.checked })}
+                className="h-4 w-4 accent-ink-900"
+              />
+              מנהל
             </label>
-            <input
-              id="new-user-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && void add()}
-              placeholder="כפי שיופיע במשימות"
-              className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
-            />
+            {errorBox}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setEditing(null)}>
+                ביטול
+              </Button>
+              <Button onClick={() => void saveEdit()} disabled={busy}>
+                שמירה
+              </Button>
+            </div>
           </div>
-          <div className="min-w-[260px] flex-1">
-            <label htmlFor="new-user" className="block text-xs font-medium text-ink-900">
-              כתובת אימייל
+        </Modal>
+      )}
+
+      {adding && (
+        <Modal onClose={() => setAdding(false)}>
+          <div className="space-y-4 p-6">
+            <h2 className="font-display text-lg font-semibold text-ink-900">הוספת משתמש</h2>
+            <div>
+              <label htmlFor="new-user-name" className="block text-xs font-medium text-ink-900">
+                שם מלא
+              </label>
+              <input
+                id="new-user-name"
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && void add()}
+                placeholder="כפי שיופיע במשימות"
+                className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="new-user" className="block text-xs font-medium text-ink-900">
+                כתובת אימייל
+              </label>
+              <input
+                id="new-user"
+                dir="ltr"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && void add()}
+                placeholder="name@example.com"
+                className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-body">
+              <input
+                type="checkbox"
+                checked={isAdmin}
+                onChange={(event) => setIsAdmin(event.target.checked)}
+                className="h-4 w-4 accent-ink-900"
+              />
+              מנהל
             </label>
-            <input
-              id="new-user"
-              dir="ltr"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && void add()}
-              placeholder="name@example.com"
-              className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm text-body outline-none focus:border-ink-500 focus:bg-white"
-            />
+            {errorBox}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setAdding(false)}>
+                ביטול
+              </Button>
+              <Button onClick={() => void add()} disabled={busy || !email.trim()}>
+                הוספה
+              </Button>
+            </div>
           </div>
-          <label className="flex items-center gap-2 pb-2.5 text-xs text-body">
-            <input
-              type="checkbox"
-              checked={isAdmin}
-              onChange={(event) => setIsAdmin(event.target.checked)}
-              className="h-4 w-4 accent-ink-900"
-            />
-            מנהל — יוכל גם להוסיף ולהסיר משתמשים
-          </label>
-          <Button onClick={() => void add()} disabled={busy || !email.trim()} className="mb-0.5">
-            הוספה
-          </Button>
-        </div>
-        {error && (
-          <p className="mx-5 mb-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
-            {error}
-          </p>
-        )}
-      </Card>
+        </Modal>
+      )}
 
       <Card>
         <CardHead
-          hint="הסרה נכנסת לתוקף בכניסה הבאה של המשתמש — תוך 12 שעות לכל היותר"
-          right={<Tag tone="ink">{active.length} מורשים</Tag>}
+          right={
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setError(null);
+                  setAdding(true);
+                }}
+              >
+                <LuUserPlus className="h-4 w-4" />
+                הוסף משתמש
+              </Button>
+              <Tag tone="ink">{active.length} מורשים</Tag>
+            </>
+          }
         />
         {active.length ? (
           <ul className="divide-y divide-line">
             {active.map((user) => (
               <li key={user.email} className="flex items-center gap-4 px-5 py-3">
                 <div className="min-w-0 flex-1">
-                  {/* The name edits in place; the key resets it when the saved name changes. */}
-                  <input
-                    key={user.display_name ?? ""}
-                    defaultValue={user.display_name ?? ""}
-                    placeholder="הוסיפו שם"
-                    aria-label={`השם של ${user.email}`}
-                    onBlur={(event) =>
-                      event.target.value.trim() !== (user.display_name ?? "") &&
-                      void rename(user.email, event.target.value)
-                    }
-                    onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-                    className="-mx-2 w-full max-w-xs rounded-lg border border-transparent px-2 py-0.5 text-sm font-medium text-ink-900 outline-none placeholder:font-normal placeholder:text-muted/70 hover:border-line focus:border-ink-300"
-                  />
+                  <p className="text-sm font-medium text-ink-900">
+                    {user.display_name || <span className="font-normal text-muted/70">ללא שם</span>}
+                  </p>
                   <p className="truncate text-right text-xs text-muted" dir="ltr">
                     {user.email}
                   </p>
@@ -170,29 +238,42 @@ export function Users({ me }: { me: Identity }) {
                 </div>
                 {user.has_password && <Tag>סיסמה הוגדרה</Tag>}
                 {user.is_admin && <Tag tone="warm">מנהל</Tag>}
-                {user.email === me.email ? (
-                  <span className="text-xs text-muted">זה אתם</span>
-                ) : (
-                  <Button variant="danger" size="sm" disabled={busy} onClick={() => void remove(user.email)}>
-                    הסרה
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setEditing({ email: user.email, name: user.display_name ?? "", isAdmin: user.is_admin });
+                    }}
+                    className="rounded-lg p-2 text-muted hover:bg-paper hover:text-ink-900"
+                    aria-label={`עריכת ${user.display_name || user.email}`}
+                    title="עריכה"
+                  >
+                    <LuPencil className="h-4 w-4" />
+                  </button>
+                  {user.email === me.email ? (
+                    // Removing yourself is refused anyway; the space keeps the pencils in one column.
+                    <span className="w-8" />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void remove(user.email)}
+                      className="rounded-lg p-2 text-muted hover:bg-[#fbeceb] hover:text-blocked disabled:opacity-50"
+                      aria-label={`הסרת ${user.display_name || user.email}`}
+                      title="הסרה"
+                    >
+                      <LuTrash className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         ) : (
-          <Empty
-            title="אין עדיין משתמשים ברשימה"
-            hint="הכתובת של סיגל מוגדרת בשרת ולכן היא נכנסת בכל מקרה, גם כשהרשימה ריקה."
-          />
+          <Empty title="אין עדיין משתמשים ברשימה" />
         )}
       </Card>
-
-      <p className="px-1 pb-2 text-xs leading-relaxed text-muted">
-        הרשימה הזו היא ההרשאה עצמה — היא נבדקת בכל כניסה, וכניסה תקפה ל-12 שעות. Google או הקוד
-        במייל רק מוכיחים מי האדם; מה שקובע אם הוא נכנס זה שהכתובת שלו מופיעה כאן. הסרה מוחקת גם
-        את הסיסמה.
-      </p>
     </div>
   );
 }

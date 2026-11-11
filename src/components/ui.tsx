@@ -1,5 +1,6 @@
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { DayPicker } from "react-day-picker";
 import { he } from "react-day-picker/locale";
 import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
@@ -330,4 +331,68 @@ export function openGoogle(app: "mail" | "calendar", email: string, event?: { ti
   const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
   const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
   window.open(url, `milo-${app}`, `popup,noopener,width=${width},height=${height},left=${left},top=${top}`);
+}
+
+/**
+ * The console's own "are you sure?", in place of the browser's confirm(): Milo's
+ * face, the question, and two buttons. Resolves true on the confirm button or
+ * Enter, false on cancel, Escape or a click outside.
+ */
+export function confirmDialog(options: { title: string; confirmLabel: string; danger?: boolean }): Promise<boolean> {
+  return new Promise((resolve) => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const done = (answer: boolean) => {
+      root.unmount();
+      host.remove();
+      resolve(answer);
+    };
+    root.render(<ConfirmDialog {...options} onDone={done} />);
+  });
+}
+
+function ConfirmDialog({
+  title,
+  confirmLabel,
+  danger,
+  onDone,
+}: {
+  title: string;
+  confirmLabel: string;
+  danger?: boolean;
+  onDone: (answer: boolean) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" && e.key !== "Enter") return;
+      // Answers this dialog only, not a window open behind it.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onDone(e.key === "Enter");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onDone]);
+
+  return (
+    <div
+      dir="rtl"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-950/60 p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && onDone(false)}
+    >
+      <div role="alertdialog" aria-label={title} className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+        <img src="/milo.png" alt="מילו" className="mx-auto h-14 w-14 rounded-xl bg-champagne object-cover" />
+        <p className="mt-4 text-base font-semibold text-ink-900">{title}</p>
+        <div className="mt-6 flex justify-center gap-2">
+          <Button variant={danger ? "danger" : "primary"} onClick={() => onDone(true)}>
+            {confirmLabel}
+          </Button>
+          <Button variant="ghost" onClick={() => onDone(false)}>
+            ביטול
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

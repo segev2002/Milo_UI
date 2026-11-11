@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
+import { LuCheck, LuCopy, LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
 import { ApiError, callAudio, deleteCall, getCall, listCalls, retryCall, uploadCall } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { CallStatus, CallTranscription } from "../types";
@@ -137,11 +137,11 @@ export function Calls() {
         <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
       ) : calls.length === 0 ? (
         <Card>
-          <Empty title="אין עדיין שיחות" hint="שימו את הטלפון על רמקול ליד המחשב ולחצו ״התחלת הקלטה״." />
+          <Empty title="אין עדיין שיחות" />
         </Card>
       ) : shown.length === 0 ? (
         <Card>
-          <Empty title="לא נמצאו שיחות" hint={`אין שיחה שמתאימה ל"${query.trim()}".`} />
+          <Empty title="לא נמצאו שיחות" />
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -394,10 +394,6 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
           </div>
         )}
       </div>
-      <p className="mt-3 text-xs text-muted">
-        שימו את הטלפון על רמקול, קרוב למחשב. בסיום אפשר להאזין להקלטה או למחוק אותה, ואז לשלוח למילו — עם ההקלטה (נשמרת
-        בתיקייה של הלקוח ואפשר להאזין לה מכרטיס השיחה) או בלי (נשמרים רק התמלול והסיכום). אל תסגרו את הדף עד שההקלטה נשלחת.
-      </p>
 
       {asking && pending && (
         <Modal onClose={() => setAsking(false)}>
@@ -559,19 +555,19 @@ function CallDetails({
           </div>
         )}
 
-        <Section title="סיכום">
+        <Section title="סיכום" copy={call?.summary && plainText(call.summary)}>
           {call?.summary ? (
             <Markdown text={call.summary} />
           ) : call && working(call) ? (
             <p className="flex items-center gap-2 text-sm text-muted">
-              <Typing /> {call.status === "transcribing" ? "מילו מתמלל את כל השיחה. הסיכום יתחיל כשהתמלול יסתיים." : "מילו כותב את הסיכום…"}
+              <Typing /> {call.status === "transcribing" ? "מילו מתמלל…" : "מילו כותב את הסיכום…"}
             </p>
           ) : (
             <p className="text-sm text-muted">אין סיכום.</p>
           )}
         </Section>
 
-        <Section title="תמלול מלא">
+        <Section title="תמלול מלא" copy={call?.transcript}>
           {call?.transcript ? (
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-body">{call.transcript}</p>
           ) : (
@@ -583,14 +579,35 @@ function CallDetails({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, copy, children }: { title: string; copy?: string | null; children: ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
   return (
     <section className="rounded-xl border border-line bg-paper/60 p-4">
-      <h3 className="mb-2 text-sm font-bold text-ink-900">{title}</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-ink-900">{title}</h3>
+        {copy && (
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard.writeText(copy).then(() => setCopied(true))}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted hover:bg-paper hover:text-ink-900"
+          >
+            {copied ? <LuCheck className="h-3.5 w-3.5" /> : <LuCopy className="h-3.5 w-3.5" />}
+            {copied ? "הועתק" : "העתקה"}
+          </button>
+        )}
+      </div>
       {children}
     </section>
   );
 }
+
+/** The summary without its Markdown marks, to paste into a mail or WhatsApp. */
+const plainText = (markdown: string) => markdown.replace(/\*\*/g, "").replace(/^\s*#{1,4}\s+/gm, "");
 
 /** The summary's Markdown: headings, bullets, bold. That is all Milo writes in it. */
 function Markdown({ text }: { text: string }) {
