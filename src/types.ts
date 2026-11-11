@@ -106,11 +106,11 @@ export interface Task {
   /** Milo's one line on what the person actually wants. Null when filed word for word. */
   summary: string | null;
   /** `media_url`: a file the person sent (a claim's receipt), opened via /agent/tasks/media. */
-  messages: { text: string; at: string; media_url?: string }[];
+  messages: { text: string; at: string; media_url?: string; media_name?: string }[];
   /** Files console users attached; `key` opens via /agent/tasks/media. */
   files: { key: string; name: string; by: string; at: string }[];
   /** The card's history, oldest first. */
-  events: { type: "created" | "status" | "assignee" | "file" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
+  events: { type: "created" | "status" | "assignee" | "file" | "file_rename" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
   assignee: string | null;
   created_by: string | null;
   created_at: string;
@@ -317,11 +317,14 @@ export interface ConsoleActivity {
   at: string;
   user_email: string;
   user_name: string | null;
-  action: "chat" | "resolve_task";
-  /** The question asked, or the resolved task's summary. */
+  /** One of ACTIONS in UserActivity.tsx. */
+  action: string;
+  /** What was done: the question asked, the task's title and the change, what was typed in the sales log… */
   detail: string | null;
-  /** The resolved task's name or number. Null for a chat. */
+  /** Whose: the task's or call's client, the sale's insured. Null for a chat. */
   customer: string | null;
+  /** The HTTP request behind it: method, path, query, body. Null on older lines. */
+  request?: Record<string, unknown> | null;
 }
 
 /* --- מכירות --------------------------------------------------------------- */

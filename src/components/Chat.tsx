@@ -36,11 +36,7 @@ export function Chat({
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-5 py-3.5">
-        <div>
-          <p className="text-xs text-muted">
-            אותו גרף, אותן הרשאות כמו בוואטסאפ — השיחה הזו היא עוד ערוץ.
-          </p>
-        </div>
+        <div />
         <Button variant="ghost" size="sm" onClick={onRestart} disabled={busy}>
           נקה שיחה
         </Button>

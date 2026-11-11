@@ -136,7 +136,7 @@ function NotificationsPanel({
       </div>
 
       {items.length === 0 ? (
-        <Empty title="אין התראות" hint="כשתגדירו מבצע, מילו יעדכן כאן כל בוקר אם הגעתם ליעד ומה נשאר." />
+        <Empty title="אין התראות" />
       ) : (
         <div className="grid min-h-0 flex-1 sm:grid-cols-[340px_1fr]">
           <ul className="max-h-[40vh] overflow-y-auto border-b border-line sm:max-h-none sm:border-b-0 sm:border-l">

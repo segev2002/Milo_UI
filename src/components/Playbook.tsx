@@ -3,7 +3,7 @@ import { useCached } from "../lib/cache";
 import type { ScenarioMeta } from "../lib/catalog";
 import type { TurnRequest } from "../types";
 import { clientReference } from "./Chat";
-import { Button, Card, CardHead, Tag } from "./ui";
+import { Button, Card, Tag } from "./ui";
 
 export function Playbook({
   busy,
@@ -15,9 +15,6 @@ export function Playbook({
   return (
     <div className="@container space-y-5">
       <Card>
-        <CardHead
-          hint="מה שמילו יודע לעשות היום. הרצה כאן עוברת באותו גרף כמו בוואטסאפ."
-        />
         <div className="grid gap-4 px-5 py-5 @xl:grid-cols-2 @[56rem]:grid-cols-3">
           {SCENARIOS.map((scenario) => (
             <ScenarioCard key={scenario.intent} scenario={scenario} busy={busy} onRun={onRun} />

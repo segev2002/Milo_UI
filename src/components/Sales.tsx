@@ -18,7 +18,7 @@ import { useCached } from "../lib/cache";
 import type { Campaign, CampaignCategory, SaleRow, SalesSheet, SalesSheetRows } from "../types";
 import "../sheet.css";
 import { Modal } from "./Tasks";
-import { Button, Card, CardHead, DateField, Empty, FIELD, InsurerName, Select, Tag } from "./ui";
+import { Button, Card, CardHead, confirmDialog, DateField, Empty, FIELD, InsurerName, Select, Tag } from "./ui";
 
 export const CATEGORY_LABEL: Record<CampaignCategory, string> = {
   premium: "פרמיה",
@@ -83,7 +83,7 @@ function Campaigns({
 
   /** "הושלם": the campaign leaves the console, and Milo stops checking it. */
   async function complete(c: Campaign) {
-    if (!confirm(`לסמן את "${campaignName(c)}" כהושלם? הוא יוסר מהקונסולה ומילו יפסיק לעדכן עליו.`)) return;
+    if (!(await confirmDialog({ title: `לסמן את "${campaignName(c)}" כהושלם?`, confirmLabel: "הושלם" }))) return;
     try {
       await updateCampaign(c.id, { archived: true });
       await refresh();
@@ -95,7 +95,6 @@ function Campaigns({
   return (
     <Card>
       <CardHead
-        hint='כל בוקר ב-08:00 מילו בודק כל מבצע ומעדכן אותך בהתראות. נספרות רק מכירות בסטטוס "פוליסה", לפי תאריך המכירה.'
         right={
           <Button onClick={() => setCreating(true)}>
             <LuTarget className="h-4 w-4" />
@@ -106,7 +105,7 @@ function Campaigns({
       {campaigns === null ? (
         <p className="px-5 py-6 text-sm text-muted">טוען…</p>
       ) : campaigns.length === 0 ? (
-        <Empty title="אין מבצעים פעילים" hint='לחצו "ליצור מבצע" כדי להגדיר יעד — למשל פרמיה של ₪100,000 בהראל בשלושה חודשים.' />
+        <Empty title="אין מבצעים פעילים" />
       ) : (
         <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((c) => (
@@ -315,9 +314,6 @@ function CampaignForm({
               className={`${FIELD} mt-2 text-base`}
             />
           )}
-          {picked === OTHER && (
-            <p className="mt-1.5 text-xs text-muted">המבצע סופר שורות שבעמודת &quot;חברה&quot; כתוב בהן בדיוק השם הזה.</p>
-          )}
         </Labelled>
         <div className="grid gap-5 sm:grid-cols-2">
           <Labelled label="מתאריך">
@@ -330,7 +326,6 @@ function CampaignForm({
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">
             קטגוריות ויעדים
-            <span className="mr-2 text-xs font-normal text-muted">יעד בשקלים לכל קטגוריה</span>
           </span>
           {/* Category | target | remove — a grid, so every row lines up. */}
           <div className="grid grid-cols-[minmax(0,1fr)_10rem_2.25rem] items-center gap-x-2 gap-y-2">
@@ -707,10 +702,10 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
       {sheets === null ? (
         <p className="px-5 py-6 text-sm text-muted">טוען…</p>
       ) : sheets.length === 0 ? (
-        <Empty title="אין עדיין גיליונות" hint='לחצו "+" למטה כדי לפתוח גיליון לחודש.' />
+        <Empty title="אין עדיין גיליונות" />
       ) : (
-        // Scrolls both ways inside the card, so the column names and the client's name stay in view.
-        <div ref={grid} className="sheet-scroll overflow-auto px-5 pb-5">
+        // Scrolls sideways inside the card, so the client's name stays in view; the page scrolls down.
+        <div ref={grid} className="sheet-scroll overflow-x-auto px-5 pb-5">
           <table style={{ width: "100%", minWidth: width, zoom }}>
             <colgroup>
               {COLUMNS.map((c) => (
@@ -883,7 +878,6 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
             <Stat label="ניוד קופות גמל" value={ils(sum((r) => r.gemel_amount))} money />
             <Stat label="גובה שכר" value={ils(sum((r) => r.salary))} money />
           </div>
-          <p className="mt-2 text-xs text-muted">הסכומים כוללים את כל השורות, בכל סטטוס.</p>
         </div>
       )}
     </Card>
