@@ -4,6 +4,7 @@ import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile
 import { useCached } from "../lib/cache";
 import type { Identity, Person, Task, TaskStatus } from "../types";
 import { LuPaperclip, LuPlus, LuRefreshCw, LuX } from "react-icons/lu";
+import { FileText } from "lucide-react";
 import { TaskDetails } from "./TaskDetails";
 import { Button, FIELD, Select, Tag, when } from "./ui";
 
@@ -40,7 +41,8 @@ export function Tasks({ me }: { me: Identity }) {
   const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
   const [assignee, setAssignee] = useCached("tasks.assignee", me.email);
-  const [openId, setOpenId] = useState<string | null>(null);
+  //: `?task=<id>` — the link in the "שויכה אליך משימה" email — opens that task.
+  const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get("task"));
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -259,7 +261,12 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
-        {fileCount > 0 && <Tag>📎 {fileCount}</Tag>}
+        {fileCount > 0 && (
+          <Tag>
+            <FileText className="ml-1 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            {fileCount}
+          </Tag>
+        )}
         {task.link_url && <Tag tone="milo">{task.link_label || "קישור"}</Tag>}
         <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
@@ -325,10 +332,10 @@ function NewTask({
     <Modal onClose={onClose} size="lg">
       <form onSubmit={(e) => void submit(e)} className="space-y-5 p-5 sm:p-8">
         <h2 className="font-display text-2xl font-semibold text-ink-900">{claim ? "תביעה חדשה" : "משימה חדשה"}</h2>
-        <Labelled label="כותרת" hint="במשפט אחד: מה צריך לעשות">
+        <Labelled label="כותרת">
           <input required autoFocus value={form.title} onChange={set("title")} className={`${FIELD} text-base`} />
         </Labelled>
-        <Labelled label="תיאור" hint="כל מה שמי שמטפל צריך לדעת">
+        <Labelled label="תיאור">
           <textarea rows={7} value={form.description} onChange={set("description")} className={`${FIELD} text-base`} />
         </Labelled>
         <div className="grid gap-5 sm:grid-cols-2">

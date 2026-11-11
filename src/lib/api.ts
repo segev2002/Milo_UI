@@ -155,10 +155,10 @@ export async function addUser(email: string, isAdmin: boolean, displayName: stri
   });
 }
 
-export async function renameUser(email: string, displayName: string): Promise<AllowedUser> {
+export async function renameUser(email: string, displayName: string, isAdmin?: boolean): Promise<AllowedUser> {
   return request<AllowedUser>(`/auth/users/${encodeURIComponent(email)}`, {
     method: "PATCH",
-    body: JSON.stringify({ display_name: displayName || null }),
+    body: JSON.stringify({ display_name: displayName || null, is_admin: isAdmin }),
   });
 }
 
@@ -198,6 +198,14 @@ export async function uploadTaskFile(id: string, file: File): Promise<Task> {
   const form = new FormData();
   form.append("file", file);
   return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/files`, { method: "POST", body: form });
+}
+
+/** A file's name on the task: `key` is the attached file's key, or the WhatsApp file's media_url. */
+export async function renameTaskFile(id: string, key: string, name: string): Promise<Task> {
+  return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/files`, {
+    method: "PATCH",
+    body: JSON.stringify({ key, name }),
+  });
 }
 
 /** Note in the task's history a mail or a meeting opened in the user's Gmail / Google Calendar. */
@@ -273,8 +281,8 @@ export function taskMediaPdfUrl(mediaUrl: string): string {
 
 /* --- מעקב משתמשים -------------------------------------------------------- */
 
-/** `since` / `until` are ISO timestamps; both optional. Admins only. */
-export async function listActivity(filter: { email?: string; since?: string; until?: string }): Promise<ConsoleActivity[]> {
+/** `since` / `until` are ISO timestamps; `action` is comma-separated, any of them. All optional. Admins only. */
+export async function listActivity(filter: { email?: string; since?: string; until?: string; action?: string }): Promise<ConsoleActivity[]> {
   const query = new URLSearchParams(
     Object.entries(filter).filter((entry): entry is [string, string] => !!entry[1]),
   );

@@ -124,12 +124,8 @@
   font-weight: 600;
 }
 
-/* The sheet scrolls inside the card, both ways, so it never runs off the
-   screen: the column names stay on top and the client's name on the right. */
-.milo-sheet .sheet-scroll {
-  max-height: calc(100vh - 260px);
-  min-height: 320px;
-}
+/* The sheet is as long as its rows — the page scrolls, not the sheet. It
+   scrolls sideways only, with the client's name kept on the right. */
 .milo-sheet thead th {
   position: sticky;
   top: 0;
