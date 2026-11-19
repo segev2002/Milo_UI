@@ -23,6 +23,18 @@ const GROUPS: { label: string; tone: "ink" | "warm" | "milo" | "claim"; actions:
   },
   { label: "שיחות", tone: "milo", actions: { call_upload: "שליחת שיחה לתמלול", call_retry: "תמלול מחדש", call_delete: "מחיקת שיחה" } },
   {
+    label: "שורנס",
+    tone: "ink",
+    actions: {
+      surense_create: "פתיחת לקוח",
+      surense_update: "עדכון לקוח",
+      surense_bulk_update: "עדכון לקוחות",
+      surense_add_related: "קישור בן משפחה",
+      surense_update_related: "עדכון קשר משפחתי",
+      surense_export: "ייצוא לקוחות",
+    },
+  },
+  {
     label: "מכירות",
     tone: "claim",
     actions: {

@@ -35,7 +35,12 @@ function ScenarioCard({
   onRun: (prompt: string, request: TurnRequest) => void;
 }) {
   const [client, setClient] = useCached(`playbook.client.${scenario.intent}`, "");
+  const [provider, setProvider] = useCached<"polywizz" | "surense">(
+    `playbook.provider.${scenario.intent}`,
+    "polywizz",
+  );
   const blocked = scenario.needsClient && !client.trim();
+  const suffix = scenario.providerChoice && provider === "surense" ? " בשורנס" : "";
 
   return (
     <div className="flex flex-col rounded-2xl border border-line bg-paper p-4">
@@ -65,6 +70,31 @@ function ScenarioCard({
         />
       )}
 
+      {scenario.providerChoice && (
+        <div className="mt-2 flex items-center gap-1" role="group" aria-label="איפה לפתוח את הלקוח">
+          {(
+            [
+              ["polywizz", "PolyWizz"],
+              ["surense", "שורנס"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setProvider(value)}
+              aria-pressed={provider === value}
+              className={`rounded-md border px-2 py-0.5 text-xs font-bold transition-colors ${
+                provider === value
+                  ? "border-ink-900 bg-ink-900 text-champagne"
+                  : "border-line text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <Button
         size="sm"
         variant={blocked ? "ghost" : "warm"}
@@ -72,7 +102,7 @@ function ScenarioCard({
         disabled={busy || blocked}
         onClick={() =>
           scenario.phoneInput
-            ? onRun(`${scenario.prompt} ${client.trim()}`, { intent: scenario.intent })
+            ? onRun(`${scenario.prompt} ${client.trim()}${suffix}`, { intent: scenario.intent })
             : onRun(scenario.prompt, {
                 intent: scenario.intent,
                 ...clientReference(client),
