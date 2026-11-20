@@ -172,6 +172,19 @@ export function TaskDetails({
               }
               className={`${FIELD} resize-none overflow-hidden leading-relaxed`}
             />
+            {/* A text box can't hold a live link — e.g. the client's signing link. */}
+            {description.match(/https?:\/\/[^\s]+/g)?.map((url) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                dir="ltr"
+                className="mt-1 block break-all text-xs text-ink-700 underline"
+              >
+                {url}
+              </a>
+            ))}
           </Section>
 
           <Section title="קבצים">

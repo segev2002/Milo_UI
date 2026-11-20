@@ -11,6 +11,8 @@ export interface ScenarioMeta {
   audience: "sigal" | "client";
   /** Asks for the client's phone, sent with the prompt — not a client reference. */
   phoneInput?: boolean;
+  /** Offers PolyWizz | Surense; Surense adds "בשורנס" to the prompt. */
+  providerChoice?: boolean;
 }
 
 /** Mirrors agent-spec.md's ten scenarios plus the conversational extras. */
@@ -90,10 +92,11 @@ export const SCENARIOS: ScenarioMeta[] = [
     intent: "create_client",
     scenario: null,
     name: "יצירת לקוח חדש",
-    what: "שולח ללקוח SMS עם קישור למילוי פרטים וחתימה ב-PolyWizz. כשכל המידע מחברות הביטוח יגיע – תיפתח משימה.",
+    what: "PolyWizz: SMS עם קישור למילוי פרטים וחתימה, וכשכל המידע מחברות הביטוח יגיע – תיפתח משימה. שורנס: פותח את הלקוח בשורנס ושולח SMS עם קישור לחתימה על ייפוי הכוח (נספח א, ב, ה).",
     cadence: "לפי בקשה",
     needsClient: true,
     phoneInput: true,
+    providerChoice: true,
     prompt: "צור לקוח חדש",
     audience: "sigal",
   },

@@ -102,12 +102,18 @@ function ClientWindow({
   onRun: (prompt: string, request: TurnRequest) => void;
 }) {
   const [client, setClient] = useCached(`playbook.client.${scenario.intent}`, "");
+  //: Where a new client is opened: PolyWizz, or Surense ("בשורנס" added to the prompt).
+  const [provider, setProvider] = useCached<"polywizz" | "surense">(
+    `playbook.provider.${scenario.intent}`,
+    "polywizz",
+  );
   const look = LOOK[scenario.intent] ?? FALLBACK;
   const value = client.trim();
+  const suffix = scenario.providerChoice && provider === "surense" ? " בשורנס" : "";
 
   function run() {
     if (!value) return;
-    if (scenario.phoneInput) onRun(`${scenario.prompt} ${value}`, { intent: scenario.intent });
+    if (scenario.phoneInput) onRun(`${scenario.prompt} ${value}${suffix}`, { intent: scenario.intent });
     else onRun(scenario.prompt, { intent: scenario.intent, ...clientReference(client) });
   }
 
@@ -129,6 +135,34 @@ function ClientWindow({
           className="mt-1.5 w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-base text-body outline-none placeholder:text-muted/60 focus:border-ink-500 focus:bg-white"
         />
       </div>
+      {scenario.providerChoice && (
+        <div>
+          <p className="text-sm font-semibold text-ink-900">איפה לפתוח את הלקוח</p>
+          <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="איפה לפתוח את הלקוח">
+            {(
+              [
+                ["polywizz", "PolyWizz"],
+                ["surense", "שורנס"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setProvider(id)}
+                aria-pressed={provider === id}
+                className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-semibold transition-colors ${
+                  provider === id
+                    ? "border-ink-900 bg-ink-900 text-champagne"
+                    : "border-line bg-paper text-ink-700 hover:bg-white"
+                }`}
+              >
+                <img src={`/systems/${id}.png`} alt="" className="h-6 w-6 rounded-md bg-white object-contain p-0.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="ghost" onClick={onClose}>
           ביטול
