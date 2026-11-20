@@ -66,6 +66,8 @@
 @layer base {
   html {
     color-scheme: light;
+    /* 17px instead of the browser's 16: the whole console a little bigger and easier to read. */
+    font-size: 106.25%;
   }
   body {
     background-color: var(--color-paper);

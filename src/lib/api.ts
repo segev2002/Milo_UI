@@ -1,5 +1,6 @@
 import type {
   AllowedUser,
+  ApiKeyExpiry,
   AuthConfig,
   CallTranscription,
   Campaign,
@@ -10,6 +11,7 @@ import type {
   SalesSheet,
   SalesSheetRows,
   ServiceRow,
+  SystemsState,
   Health,
   Identity,
   Person,
@@ -17,6 +19,8 @@ import type {
   TaskChatMessage,
   TurnRequest,
   TurnResponse,
+  UsageMonth,
+  WhatsAppCode,
 } from "../types";
 
 const ENV_BASE = (import.meta.env.VITE_MILO_API_URL as string | undefined) ?? "";
@@ -164,6 +168,65 @@ export async function renameUser(email: string, displayName: string, isAdmin?: b
 
 export async function removeUser(email: string): Promise<void> {
   await request(`/auth/users/${encodeURIComponent(email)}`, { method: "DELETE" });
+}
+
+/* --- חיבורים של הסוכנות -------------------------------------------------- */
+
+export async function whatsappCode(): Promise<WhatsAppCode> {
+  return request<WhatsAppCode>("/auth/users/whatsapp-code", { method: "POST" });
+}
+
+/* --- חיבורים: the agency's systems and Google -------------------------------- */
+
+export async function getSystems(): Promise<SystemsState> {
+  return request<SystemsState>("/agent/systems");
+}
+
+export async function chooseSystems(systems: string[]): Promise<void> {
+  await request("/agent/systems", { method: "PUT", body: JSON.stringify({ systems }) });
+}
+
+/** The server tries the keys first and saves them only if they work. */
+export async function connectSystem(
+  system: string,
+  values: Record<string, string>,
+  createdOn?: string,
+): Promise<{ connected: boolean; expires_at: string | null }> {
+  return request(`/agent/systems/${encodeURIComponent(system)}`, {
+    method: "PUT",
+    body: JSON.stringify({ values, created_on: createdOn || null }),
+  });
+}
+
+/** Google's consent page (Drive, Calendar, Gmail send); Google sends the browser back to /systems. */
+export async function googleConnectUrl(): Promise<string> {
+  return (await request<{ url: string }>("/agent/google/connect")).url;
+}
+
+export async function googleTest(): Promise<{
+  calendar: boolean;
+  gmail: boolean;
+  busy_today?: number;
+  sent_to?: string;
+}> {
+  return request("/agent/google/test", { method: "POST" });
+}
+
+/* --- עלויות ומפתחות (בעלים בלבד) ------------------------------------------- */
+
+export async function ownerUsage(month: string): Promise<UsageMonth> {
+  return request<UsageMonth>(`/agent/owner/usage?month=${encodeURIComponent(month)}`);
+}
+
+export async function ownerKeys(): Promise<ApiKeyExpiry[]> {
+  return request<ApiKeyExpiry[]>("/agent/owner/keys");
+}
+
+export async function setKeyExpiry(agencyId: number, keyName: string, expiresAt: string): Promise<void> {
+  await request("/agent/owner/keys", {
+    method: "PUT",
+    body: JSON.stringify({ agency_id: agencyId, key_name: keyName, expires_at: expiresAt }),
+  });
 }
 
 /* --- משימות פתוחות -------------------------------------------------------- */

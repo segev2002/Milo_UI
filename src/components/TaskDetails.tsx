@@ -213,7 +213,7 @@ export function TaskDetails({
                       </span>
                       <span className="min-w-0">
                         <span className="block max-w-[14rem] truncate text-sm font-medium text-ink-900">{file.name}</span>
-                        <span className="block text-[11px] text-muted">{dragAs(file).label}</span>
+                        <span className="block text-[12px] text-muted">{dragAs(file).label}</span>
                       </span>
                     </button>
                     <button
@@ -586,7 +586,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
                   קובץ
                 </button>
               )}
-              <p className="mt-1 text-left text-[11px] text-muted">{when(message.at)}</p>
+              <p className="mt-1 text-left text-[12px] text-muted">{when(message.at)}</p>
             </div>
           </div>
         );

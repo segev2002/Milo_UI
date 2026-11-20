@@ -105,7 +105,7 @@ export function Calls() {
       <Recorder onUploaded={added} onError={setError} />
 
       {error && (
-        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
           {error}
         </p>
       )}
@@ -623,7 +623,7 @@ function Markdown({ text }: { text: string }) {
         const heading = line.match(/^#{1,4}\s+(.*)$/);
         if (heading)
           return (
-            <h4 key={i} className="pt-2 text-[15px] font-bold text-ink-900 first:pt-0">
+            <h4 key={i} className="pt-2 text-[16px] font-bold text-ink-900 first:pt-0">
               {inline(heading[1])}
             </h4>
           );

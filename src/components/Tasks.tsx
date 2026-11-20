@@ -136,7 +136,7 @@ export function Tasks({ me }: { me: Identity }) {
       </div>
 
       {error && (
-        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
           {error}
         </p>
       )}
@@ -168,7 +168,7 @@ export function Tasks({ me }: { me: Identity }) {
               >
                 <h2 className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold text-ink-900">
                   {column.label}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-muted">
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-medium text-muted">
                     {cards.length}
                   </span>
                 </h2>
@@ -268,11 +268,11 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
           </Tag>
         )}
         {task.link_url && <Tag tone="milo">{task.link_label || "קישור"}</Tag>}
-        <span className="mr-auto text-[11px] text-muted">{when(task.last_message_at)}</span>
+        <span className="mr-auto text-[12px] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
           <span
             title={assignee}
-            className="max-w-[45%] truncate rounded-full bg-ink-900 px-2 py-0.5 text-[11px] font-semibold text-champagne"
+            className="max-w-[45%] truncate rounded-full bg-ink-900 px-2 py-0.5 text-[12px] font-semibold text-champagne"
           >
             {assignee}
           </span>

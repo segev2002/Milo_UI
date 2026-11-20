@@ -1,6 +1,8 @@
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { ArrowUpRight } from "lucide-react";
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { DayPicker } from "react-day-picker";
 import { he } from "react-day-picker/locale";
 import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
@@ -69,7 +71,7 @@ export function StatusPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${STATUS_STYLE[status]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium ${STATUS_STYLE[status]}`}
     >
       <span aria-hidden>{STATUS_MARK[status]}</span>
       {children ?? STATUS_TEXT[status]}
@@ -86,7 +88,7 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
     claim: "border-claim/30 bg-claim/10 text-claim",
   };
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[12px] font-medium ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -393,6 +395,127 @@ function ConfirmDialog({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A card that tilts toward the pointer in 3D: a brand-coloured face with a big
+ * logo, a title and a status on top, an optional link in the corner, and one
+ * glass action button at the bottom. Used for every connection on חיבורים, so
+ * they all look the same. Still for people who prefer reduced motion.
+ */
+export function TiltCard({
+  title,
+  subtitle,
+  logo,
+  color,
+  href,
+  actionText,
+  onAction,
+  disabled = false,
+  description,
+}: {
+  title: string;
+  subtitle: ReactNode;
+  /** A line or two under the logo: what this card does. */
+  description?: string;
+  /** The logo, shown large on a white tile. */
+  logo: ReactNode;
+  /** The face's colour (any CSS colour): the vendor's own. */
+  color: string;
+  /** The vendor's site, opened from the corner arrow. */
+  href?: string;
+  actionText: string;
+  onAction: () => void;
+  disabled?: boolean;
+}) {
+  const still = useReducedMotion();
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const spring = { damping: 15, stiffness: 150 };
+  const rotateX = useTransform(useSpring(y, spring), [-0.5, 0.5], ["10deg", "-10deg"]);
+  const rotateY = useTransform(useSpring(x, spring), [-0.5, 0.5], ["-10deg", "10deg"]);
+
+  return (
+    <div style={{ perspective: "1000px" }}>
+      <motion.div
+        onMouseMove={(event) => {
+          if (still) return;
+          const box = event.currentTarget.getBoundingClientRect();
+          x.set((event.clientX - box.left) / box.width - 0.5);
+          y.set((event.clientY - box.top) / box.height - 0.5);
+        }}
+        onMouseLeave={() => {
+          x.set(0);
+          y.set(0);
+        }}
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        className="relative h-[21rem] w-full rounded-2xl border border-line bg-white shadow-xl"
+      >
+        <div
+          style={{ transform: "translateZ(40px)", transformStyle: "preserve-3d", background: color }}
+          className="absolute inset-3 grid grid-rows-[auto_1fr_auto] overflow-hidden rounded-xl p-4 text-white shadow-lg"
+        >
+          {/* Darker at the bottom, so white text reads on any brand colour. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/50" />
+
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 style={{ transform: "translateZ(40px)" }} className="truncate font-display text-2xl font-bold">
+                {title}
+              </h3>
+              <div style={{ transform: "translateZ(30px)" }} className="mt-1 text-base text-white/90">
+                {subtitle}
+              </div>
+            </div>
+            {href && (
+              <motion.a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={still ? undefined : { scale: 1.1, rotate: "2.5deg" }}
+                whileTap={still ? undefined : { scale: 0.9 }}
+                aria-label={`האתר של ${title}`}
+                style={{ transform: "translateZ(50px)" }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-inset ring-white/30 backdrop-blur-sm transition-colors hover:bg-white/30"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </motion.a>
+            )}
+          </div>
+
+          <div className="relative flex flex-col items-center justify-center gap-3">
+            <div
+              // Solid white: the console's glass theme would turn bg-white translucent.
+              style={{ transform: "translateZ(60px)", background: "#fff", backdropFilter: "none" }}
+              className="flex h-24 w-24 items-center justify-center rounded-2xl p-3 shadow-lg"
+            >
+              {logo}
+            </div>
+            {description && (
+              <p
+                style={{ transform: "translateZ(30px)" }}
+                className="line-clamp-2 max-w-[22rem] text-center text-sm leading-relaxed text-white/85"
+              >
+                {description}
+              </p>
+            )}
+          </div>
+
+          <motion.button
+            type="button"
+            onClick={onAction}
+            disabled={disabled}
+            whileHover={still || disabled ? undefined : { scale: 1.04 }}
+            whileTap={still || disabled ? undefined : { scale: 0.96 }}
+            style={{ transform: "translateZ(40px)" }}
+            className="relative w-full rounded-lg bg-white/15 py-3 text-center text-base font-semibold ring-1 ring-inset ring-white/25 backdrop-blur-md transition-colors hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {actionText}
+          </motion.button>
+        </div>
+      </motion.div>
     </div>
   );
 }
