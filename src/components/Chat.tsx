@@ -163,7 +163,7 @@ function Bubble({
                 {message.demo && <Tag tone="warm">דוגמה — לא ממילו</Tag>}
                 {message.intent && <Tag tone="ink">{intentLabel(message.intent)}</Tag>}
                 {message.durationMs != null && (
-                  <span className="text-[11px] text-muted">
+                  <span className="text-[12px] text-muted">
                     {(message.durationMs / 1000).toFixed(1)}s
                   </span>
                 )}

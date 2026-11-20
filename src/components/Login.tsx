@@ -72,6 +72,8 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  //: On <subdomain>.milogroups.com: whose console this is.
+  const [agency, setAgency] = useState("");
 
   const signIn = useCallback(
     async (credential: string) => {
@@ -94,6 +96,7 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
       try {
         const config = await authConfig();
         if (cancelled) return;
+        setAgency(config.agency ?? "");
 
         if (!config.google_sign_in_enabled || !config.google_client_id) {
           // The server has no client id. Say so plainly, rather than rendering
@@ -137,7 +140,7 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
         <div className="mb-8 flex flex-col items-center text-center">
           <img src="/milo.png" alt="" className="h-16 w-16 rounded-2xl bg-champagne object-cover shadow-sm" />
           <h1 className="mt-5 font-display text-[28px] font-semibold leading-none text-ink-900">מילו</h1>
-          <p className="mt-3 text-[15px] text-muted">העוזר האישי של סיגל</p>
+          <p className="mt-3 text-[16px] text-muted">{agency ? `הקונסולה של ${agency}` : "העוזר האישי של סיגל"}</p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white px-7 py-8">
@@ -161,19 +164,19 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
           <EmailSignIn onSignedIn={onSignedIn} />
 
           {status === "unavailable" && !error && (
-            <p className="mt-4 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-[13px] leading-relaxed text-[#7a5a1a]">
+            <p className="mt-4 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-[14px] leading-relaxed text-[#7a5a1a]">
               כניסה עם Google לא מוגדרת בשרת. אפשר להיכנס עם אימייל וסיסמה.
             </p>
           )}
 
           {status === "unreachable" && !error && (
-            <p className="mt-4 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-[13px] leading-relaxed text-[#7a5a1a]">
+            <p className="mt-4 rounded-xl border border-champagne-deep bg-champagne-soft px-4 py-3 text-[14px] leading-relaxed text-[#7a5a1a]">
               לא הצלחתי להגיע לשרת של מילו. ודאו שהוא רץ, ונסו שוב.
             </p>
           )}
 
           {error && (
-            <p className="mt-4 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+            <p className="mt-4 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
               {error}
             </p>
           )}
@@ -185,7 +188,7 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
 
 const RESEND_AFTER = 60;
 const ERROR_BOX =
-  "rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked";
+  "rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked";
 
 /**
  * Email + password. "כניסה ראשונה / שכחתי סיסמה" emails a 6-digit code; with it
@@ -251,7 +254,7 @@ function EmailSignIn({ onSignedIn }: { onSignedIn: (identity: Identity) => void 
           void choose();
         }}
       >
-        <p className="text-[13px] leading-relaxed text-body">
+        <p className="text-[14px] leading-relaxed text-body">
           שלחנו קוד בן 6 ספרות ל-<span dir="ltr" className="font-semibold text-ink-900">{email.trim()}</span>.
           הקוד בתוקף ל-10 דקות.
         </p>

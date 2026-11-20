@@ -139,7 +139,7 @@ export function UserActivity() {
         </label>
       </div>
       {error && (
-        <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+        <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
           {error}
         </p>
       )}

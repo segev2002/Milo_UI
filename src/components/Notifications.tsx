@@ -60,7 +60,7 @@ export function MiloNotifications({
       >
         {picture}
         {unread > 0 && (
-          <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-claim px-1 text-[11px] font-bold leading-none text-white ring-2 ring-ink-900">
+          <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-claim px-1 text-[12px] font-bold leading-none text-white ring-2 ring-ink-900">
             {unread > 9 ? "9+" : unread}
           </span>
         )}

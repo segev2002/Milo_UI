@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { LuPanelRightClose, LuPanelRightOpen } from "react-icons/lu";
 import { SiGmail, SiGooglecalendar } from "react-icons/si";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
-import { health as fetchHealth, listTasks, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
+import { getSystems, health as fetchHealth, listTasks, logout, me as fetchMe, setUnauthorizedHandler } from "./lib/api";
 import { useMilo } from "./hooks/useMilo";
 import { clearCache } from "./lib/cache";
 import type { Health, Identity, Task, TurnRequest } from "./types";
@@ -17,6 +17,8 @@ import { Sales } from "./components/Sales";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
 import { UserActivity } from "./components/UserActivity";
+import { Owner } from "./components/Owner";
+import { Systems } from "./components/Systems";
 import { Users } from "./components/Users";
 import { DevBanner, openGoogle } from "./components/ui";
 import { THEMES, ThemeSwitcher, type Theme } from "./components/ThemeSwitcher";
@@ -29,6 +31,8 @@ const TITLES: Record<View, { title: string }> = {
   calls: { title: "תמלול שיחות" },
   users: { title: "ניהול משתמשים" },
   activity: { title: "מעקב משתמשים" },
+  owner: { title: "עלויות ומפתחות" },
+  systems: { title: "חיבורים" },
   sales: { title: "מכירות" },
 };
 
@@ -99,6 +103,23 @@ export default function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  //: First sign-in of an agency admin with nothing connected yet: open חיבורים, once per visit.
+  useEffect(() => {
+    if (!me?.is_admin) return;
+    try {
+      if (sessionStorage.getItem("systems.checked")) return;
+      sessionStorage.setItem("systems.checked", "1");
+    } catch {
+      /* storage blocked: check on every load */
+    }
+    getSystems()
+      .then((state) => {
+        const nothing = !state.systems.some((s) => s.connected) || !state.google.connected;
+        if (nothing && state.can_write) navigate("/systems");
+      })
+      .catch(() => undefined);
+  }, [me, navigate]);
 
   /** One 401, from any screen, means the same thing: the session is over. */
   useEffect(() => {
@@ -277,6 +298,17 @@ export default function App() {
             <Route path="/calls" element={<Calls />} />
             <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
+            <Route path="/owner" element={me.is_owner ? <Owner /> : <Navigate to="/tasks" replace />} />
+            <Route
+              path="/systems"
+              element={
+                me.is_admin ? (
+                  <Systems />
+                ) : (
+                  <Navigate to="/tasks" replace />
+                )
+              }
+            />
             <Route
               path="/sales"
               element={me.is_admin ? <Sales focusCampaign={focusCampaign} /> : <Navigate to="/tasks" replace />}

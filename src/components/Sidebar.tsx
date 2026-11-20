@@ -9,18 +9,20 @@ import {
   LuClipboardList,
   LuLogOut,
   LuMic,
+  LuPlug,
   LuUsers,
+  LuWallet,
   LuX,
 } from "react-icons/lu";
 
-export type View = "activity" | "calls" | "chat" | "playbook" | "sales" | "tasks" | "users";
+export type View = "activity" | "calls" | "chat" | "owner" | "playbook" | "sales" | "systems" | "tasks" | "users";
 
 const ICON = "h-[18px] w-[18px]";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
     security — the server refuses the calls behind them either way.
     Order: the daily work, then Milo, then managing the console. */
-const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
+const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean; owner?: boolean }[] = [
   { view: "tasks", label: "משימות", icon: <LuClipboardList className={ICON} /> },
   { view: "sales", label: "מכירות", icon: <LuChartColumn className={ICON} />, admin: true },
   { view: "calls", label: "תמלול שיחות", icon: <LuMic className={ICON} /> },
@@ -28,6 +30,9 @@ const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean }[] = [
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
   { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
   { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
+  { view: "systems", label: "חיבורים", icon: <LuPlug className={ICON} />, admin: true },
+  // Milo's owner only: every agency's cost and keys.
+  { view: "owner", label: "עלויות ומפתחות", icon: <LuWallet className={ICON} />, owner: true },
 ];
 
 export function Sidebar({
@@ -74,7 +79,7 @@ export function Sidebar({
         <MiloNotifications enabled={me.is_admin} onOpenCampaign={onOpenCampaign} />
         <div className={`min-w-0 flex-1 whitespace-nowrap ${fade}`}>
           <p className="font-display text-[17px] font-semibold leading-none text-champagne">Milo</p>
-          <p className="mt-1 text-[11px] tracking-wide text-champagne/55">סוכנות הביטוח של סיגל</p>
+          <p className="mt-1 text-[12px] tracking-wide text-champagne/55">{me.agency || "סוכנות הביטוח של סיגל"}</p>
         </div>
         <button
           onClick={onClose}
@@ -86,7 +91,7 @@ export function Sidebar({
       </div>
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3">
-        {NAV.filter((item) => !item.admin || me.is_admin).map((item) => {
+        {NAV.filter((item) => (!item.admin || me.is_admin) && (!item.owner || me.is_owner)).map((item) => {
           const active = view === item.view;
           return (
             <button
@@ -121,7 +126,7 @@ export function Sidebar({
           <span className={`whitespace-nowrap ${fade}`}>יציאה</span>
         </button>
         {health?.all_integrations_mocked && (
-          <p className={`rounded-lg bg-white/8 px-2.5 py-2 text-[11px] leading-relaxed text-champagne/70 ${hide}`}>
+          <p className={`rounded-lg bg-white/8 px-2.5 py-2 text-[12px] leading-relaxed text-champagne/70 ${hide}`}>
             כל האינטגרציות מדומות — התוצאות הן נתוני דוגמה, לא ה-CRM האמיתי.
           </p>
         )}
