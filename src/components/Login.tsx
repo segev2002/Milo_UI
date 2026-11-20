@@ -72,8 +72,6 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  //: On <subdomain>.milogroups.com: whose console this is.
-  const [agency, setAgency] = useState("");
 
   const signIn = useCallback(
     async (credential: string) => {
@@ -96,7 +94,6 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
       try {
         const config = await authConfig();
         if (cancelled) return;
-        setAgency(config.agency ?? "");
 
         if (!config.google_sign_in_enabled || !config.google_client_id) {
           // The server has no client id. Say so plainly, rather than rendering
@@ -140,7 +137,7 @@ export function Login({ onSignedIn }: { onSignedIn: (identity: Identity) => void
         <div className="mb-8 flex flex-col items-center text-center">
           <img src="/milo.png" alt="" className="h-16 w-16 rounded-2xl bg-champagne object-cover shadow-sm" />
           <h1 className="mt-5 font-display text-[28px] font-semibold leading-none text-ink-900">מילו</h1>
-          <p className="mt-3 text-[16px] text-muted">{agency ? `הקונסולה של ${agency}` : "העוזר האישי של סיגל"}</p>
+          <p className="mt-3 text-[16px] text-muted">העוזר האישי של הסוכנות</p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white px-7 py-8">

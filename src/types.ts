@@ -61,8 +61,6 @@ export interface WhoAmI {
 export interface AuthConfig {
   google_client_id: string | null;
   google_sign_in_enabled: boolean;
-  /** The agency whose console this is (<subdomain>.milogroups.com); empty on Sigal's. */
-  agency?: string;
 }
 
 /** GET /agent/systems — what the agency connected. Never the keys themselves. */
