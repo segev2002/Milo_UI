@@ -44,7 +44,7 @@ export function Sales({ focusCampaign }: { focusCampaign?: string | null }) {
   return (
     <div className="space-y-5">
       {error && (
-        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[13px] leading-relaxed text-blocked">
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
           {error}
         </p>
       )}
@@ -176,7 +176,7 @@ function CampaignCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-display text-[15px] font-semibold text-ink-900">{campaignName(c)}</p>
+          <p className="truncate font-display text-[16px] font-semibold text-ink-900">{campaignName(c)}</p>
           <p className="mt-0.5 text-xs text-muted">
             {heDate(c.start_date)} – {heDate(c.end_date)}
           </p>

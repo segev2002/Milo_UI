@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # Production by default; the GitHub workflow overrides these for development.
-BUCKET="${BUCKET:-milo-ui}"
+BUCKET="${BUCKET:-milo-console-prod}"
 DISTRIBUTION="${DISTRIBUTION:-EZ8CULA3OUM6A}"
 SITE="${SITE:-https://app.milo-agent-sigal.com}"
 

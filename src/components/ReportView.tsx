@@ -15,7 +15,7 @@ export function ReportView({ report }: { report: Report }) {
         {report.sections.map((section, index) => (
           <section key={index} className="space-y-2">
             {section.title && (
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+              <h4 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
                 {section.title}
               </h4>
             )}
@@ -39,7 +39,7 @@ export function ReportView({ report }: { report: Report }) {
                           <th
                             key={header}
                             scope="col"
-                            className="border-b border-line pb-2 pe-4 text-start text-[11px] font-semibold uppercase tracking-[0.06em] text-muted"
+                            className="border-b border-line pb-2 pe-4 text-start text-[12px] font-semibold uppercase tracking-[0.06em] text-muted"
                           >
                             {header}
                           </th>
@@ -112,7 +112,7 @@ export function Callout({
   };
   return (
     <div className={`rounded-xl border px-3.5 py-3 ${tones[tone]}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{title}</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">{title}</p>
       <ul className="mt-1.5 space-y-1">
         {children.map((item, i) => (
           <li key={i} className="text-sm leading-relaxed text-body">

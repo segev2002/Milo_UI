@@ -63,11 +63,70 @@ export interface AuthConfig {
   google_sign_in_enabled: boolean;
 }
 
+/** GET /agent/systems — what the agency connected. Never the keys themselves. */
+export interface SystemStatus {
+  id: "surense" | "polywizz" | "roeto" | "bafi";
+  name: string;
+  fields: string[];
+  /** False: listed, cannot be connected yet ("בקרוב"). */
+  available: boolean;
+  chosen: boolean;
+  connected: boolean;
+  expires_at: string | null;
+}
+
+export interface SystemsState {
+  /** False on dev for a real agency: its keys are shared with production. */
+  can_write: boolean;
+  systems: SystemStatus[];
+  google: { connected: boolean; drive: boolean; calendar: boolean; gmail: boolean; account?: string };
+}
+
 /** GET /auth/me, POST /auth/google — who the session cookie says this is. */
 export interface Identity {
   email: string;
   display_name: string;
   is_admin: boolean;
+  /** Milo's owner (all agencies): sees "עלויות ומפתחות". Not an agency role. */
+  is_owner?: boolean;
+  /** The agency this session works in; empty for Sigal's own deployment. */
+  agency?: string;
+}
+
+/** GET /agent/owner/usage — one agency's use of one kind in the month. */
+export interface UsageRow {
+  agency_id: number | null;
+  agency: string | null;
+  month: string;
+  kind: "chat" | "pdf" | "transcription" | "whatsapp" | "sms";
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  units: number;
+  cost_usd: number;
+}
+
+export interface UsageMonth {
+  month: string;
+  agencies: { id: number; name: string; code: string }[];
+  rows: UsageRow[];
+}
+
+/** GET /agent/owner/keys — an agency's API key that expires. */
+export interface ApiKeyExpiry {
+  agency_id: number;
+  agency: string;
+  key_name: string;
+  expires_at: string;
+  days_left: number;
+  notified_at: string | null;
+}
+
+/** POST /auth/users/whatsapp-code — connect the agent's phone; the agency's links. */
+export interface WhatsAppCode {
+  code: string;
+  agent_link: string;
+  client_link: string;
 }
 
 /** One row of the allowlist — GET /auth/users. */

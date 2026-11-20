@@ -6,7 +6,7 @@
 .milo-sheet {
   /* The grid in the console's champagne, like its cards' edges and dividers. */
   --sheet-grid: var(--color-champagne-deep);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-body);
 }
 
@@ -41,7 +41,7 @@
 .milo-sheet .sheet-head {
   background: var(--color-ink-900);
   color: var(--color-champagne);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
   height: 44px;

@@ -114,7 +114,7 @@ function Bubble({
                     : "border-line bg-white text-body"
                 }`}
               >
-                {message.text}
+                <Linked text={message.text} />
               </div>
             )}
 
@@ -163,7 +163,7 @@ function Bubble({
                 {message.demo && <Tag tone="warm">דוגמה — לא ממילו</Tag>}
                 {message.intent && <Tag tone="ink">{intentLabel(message.intent)}</Tag>}
                 {message.durationMs != null && (
-                  <span className="text-[11px] text-muted">
+                  <span className="text-[12px] text-muted">
                     {(message.durationMs / 1000).toFixed(1)}s
                   </span>
                 )}
@@ -183,4 +183,22 @@ export function clientReference(value: string): TurnRequest {
   if (/^[Cc]-?\d+$/.test(trimmed)) return { client_crm_id: trimmed.toUpperCase() };
   if (/^\d{9}$/.test(trimmed)) return { client_id_number: trimmed };
   return { client_name: trimmed };
+}
+
+/** Milo's text with every https:// link clickable — e.g. the signing link
+ *  "צור לקוח חדש" sends, so it can be opened straight from the chat. */
+function Linked({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noreferrer" dir="ltr" className="break-all underline">
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
 }
