@@ -90,7 +90,7 @@ export function Intro({ name, onDone }: { name: string; onDone: () => void }) {
             transform: shown ? "none" : "translateY(8px)",
           }}
         >
-          <h1 className="font-display text-[34px] font-semibold leading-tight text-ink-900">
+          <h1 className="font-display text-[2.125rem] font-semibold leading-tight text-ink-900">
             ברוכים הבאים, {first}
           </h1>
           <p className="mt-2 text-sm text-muted">מילו מכין לך את היום</p>

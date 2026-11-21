@@ -60,7 +60,7 @@ export function MiloNotifications({
       >
         {picture}
         {unread > 0 && (
-          <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-claim px-1 text-[12px] font-bold leading-none text-white ring-2 ring-ink-900">
+          <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-claim px-1 text-[0.75rem] font-bold leading-none text-white ring-2 ring-ink-900">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -138,7 +138,7 @@ function NotificationsPanel({
       {items.length === 0 ? (
         <Empty title="אין התראות" />
       ) : (
-        <div className="grid min-h-0 flex-1 sm:grid-cols-[340px_1fr]">
+        <div className="grid min-h-0 flex-1 sm:grid-cols-[21.25rem_1fr]">
           <ul className="max-h-[40vh] overflow-y-auto border-b border-line sm:max-h-none sm:border-b-0 sm:border-l">
             {items.map((n, i) => (
               <li key={n.id}>

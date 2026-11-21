@@ -9,6 +9,8 @@ import type {
   MiloNotification,
   SaleRow,
   SalesSheet,
+  SheetColumn,
+  SheetStat,
   SalesSheetRows,
   ServiceRow,
   SystemsState,
@@ -64,7 +66,33 @@ function url(path: string): string {
   return `${session.baseUrl}${path}`;
 }
 
+/* --- what is on its way ---------------------------------------------------
+   How many calls to Milo are waiting for an answer, for the loading bar at the
+   top of the console (ui.tsx LoadingBar). */
+let pending = 0;
+const listeners = new Set<() => void>();
+export const loading = {
+  get: () => pending,
+  subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => void listeners.delete(listener);
+  },
+};
+function track(change: number) {
+  pending += change;
+  listeners.forEach((listener) => listener());
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  track(1);
+  try {
+    return await send<T>(path, init);
+  } finally {
+    track(-1);
+  }
+}
+
+async function send<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url(path), {
@@ -85,7 +113,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // first load too, before anyone has signed in.
     if (response.status === 401) onUnauthorized();
     throw new ApiError(
-      detail?.detail ?? `מילו החזיר ${response.status}.`,
+      // A refused request (422) explains itself as a list, in English: a plain line instead.
+      typeof detail?.detail === "string" ? detail.detail : response.status === 422 ? "הבקשה לא התקבלה." : `מילו החזיר ${response.status}.`,
       response.status,
     );
   }
@@ -255,7 +284,11 @@ export async function createTask(task: {
 /** `assignee: ""` unassigns. */
 export async function updateTask(
   id: string,
-  changes: Partial<Pick<Task, "title" | "description" | "status">> & { assignee?: string },
+  changes: Partial<Pick<Task, "title" | "description" | "status">> & {
+    assignee?: string;
+    /** "" clears the date. */
+    due_date?: string;
+  },
 ): Promise<Task> {
   return request<Task>(`/agent/tasks/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -274,6 +307,13 @@ export async function renameTaskFile(id: string, key: string, name: string): Pro
   return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/files`, {
     method: "PATCH",
     body: JSON.stringify({ key, name }),
+  });
+}
+
+/** A file a user attached, removed from the task. */
+export async function deleteTaskFile(id: string, key: string): Promise<Task> {
+  return request<Task>(`/agent/tasks/${encodeURIComponent(id)}/files?${new URLSearchParams({ key })}`, {
+    method: "DELETE",
   });
 }
 
@@ -381,6 +421,14 @@ export async function createSalesSheet(title: string, month?: string): Promise<S
 
 export async function renameSalesSheet(sheetId: string, title: string): Promise<SalesSheet> {
   return request<SalesSheet>(`${SALES}/sheets/${id(sheetId)}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+/** A tab's columns or summary — each replaces the tab's whole list. */
+export async function updateSalesSheet(
+  sheetId: string,
+  changes: { columns?: SheetColumn[]; summary?: SheetStat[] },
+): Promise<SalesSheet> {
+  return request<SalesSheet>(`${SALES}/sheets/${id(sheetId)}`, { method: "PATCH", body: JSON.stringify(changes) });
 }
 
 export async function deleteSalesSheet(sheetId: string): Promise<void> {

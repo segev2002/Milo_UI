@@ -20,7 +20,7 @@ import { UserActivity } from "./components/UserActivity";
 import { Owner } from "./components/Owner";
 import { Systems } from "./components/Systems";
 import { Users } from "./components/Users";
-import { DevBanner, openGoogle } from "./components/ui";
+import { DevBanner, LoadingBar, openGoogle, OverflowTip } from "./components/ui";
 import { THEMES, ThemeSwitcher, type Theme } from "./components/ThemeSwitcher";
 import type { View } from "./components/Sidebar";
 
@@ -54,18 +54,25 @@ export default function App() {
   //: The sidebar is a drawer on a phone.
   const [menuOpen, setMenuOpen] = useState(false);
   //: On a wide screen it can shrink to icons; remembered per browser.
-  const [collapsed, setCollapsed] = useState(() => {
+  const savedCollapsed = () => {
     try {
       return localStorage.getItem("milo.sidebar") === "collapsed";
     } catch {
       return false;
     }
-  });
+  };
+  //: The sales sheet is wide, so the sidebar starts closed there (it can still be opened).
+  const [collapsed, setCollapsed] = useState(() => view === "sales" || savedCollapsed());
+  useEffect(() => {
+    setCollapsed(view === "sales" || savedCollapsed());
+  }, [view]);
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);
     // The glass blur is paused while the width animates (liquid-glass.css).
     document.documentElement.dataset.resizing = "";
     window.setTimeout(() => delete document.documentElement.dataset.resizing, 550);
+    // Opening it on the sales page is for that visit only, not the remembered choice.
+    if (view === "sales") return;
     try {
       localStorage.setItem("milo.sidebar", collapsed ? "open" : "collapsed");
     } catch {
@@ -211,6 +218,8 @@ export default function App() {
   return (
     // dvh: a phone's browser bars are not counted, so nothing hides behind them. The notch's inset on top.
     <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)]">
+    <LoadingBar />
+    <OverflowTip />
     {intro && <Intro name={me.display_name} onDone={endIntro} />}
     {!intro && <DesktopNotificationsPrompt name={me.display_name} />}
     <DevBanner />
@@ -250,7 +259,7 @@ export default function App() {
         <header className="flex shrink-0 items-center justify-between gap-3 px-4 pb-4 pt-4 md:flex-wrap md:gap-4 md:px-8 md:pb-5 md:pt-7">
           <div className="flex items-center gap-3">
             <div>
-            <h1 className="font-display text-[26px] font-semibold leading-none text-ink-900">
+            <h1 className="font-display text-[1.625rem] font-semibold leading-none text-ink-900">
               {head.title}
             </h1>
             </div>
@@ -285,9 +294,9 @@ export default function App() {
           data-scroll-root
           className={
             view === "chat"
-              ? "min-h-0 flex-1 overflow-hidden px-4 pb-[calc(90px+env(safe-area-inset-bottom))] md:px-8 md:pb-6"
+              ? "min-h-0 flex-1 overflow-hidden px-4 pb-[calc(5.625rem+env(safe-area-inset-bottom))] md:px-8 md:pb-6"
               : // On a phone, room at the bottom for the tab bar.
-                "min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(100px+env(safe-area-inset-bottom))] md:px-8 md:pb-10"
+                "min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] md:px-8 md:pb-10"
           }
         >
           <Routes>

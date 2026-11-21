@@ -43,7 +43,7 @@ const BRAND: Record<string, { color: string; keys?: string; keysNote?: string }>
 };
 
 const ERROR_BOX =
-  "rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked";
+  "rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[0.875rem] leading-relaxed text-blocked";
 const INPUT =
   "mt-1.5 w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-base text-body outline-none focus:border-ink-500 focus:bg-white";
 
