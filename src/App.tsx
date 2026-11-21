@@ -183,6 +183,15 @@ export default function App() {
     void ask(prompt, request);
   };
 
+  //: /chat?client=C-1234 — the link Milo sends the agent on WhatsApp: open that
+  //  client's file in the chat, once, then drop the parameter.
+  const linkedClient = view === "chat" ? new URLSearchParams(location.search).get("client") : null;
+  useEffect(() => {
+    if (!me || !linkedClient || !/^C-?\d+$/i.test(linkedClient)) return;
+    navigate("/chat", { replace: true });
+    void ask(`סקירה על ${linkedClient}`, { intent: "client_overview", client_crm_id: linkedClient.toUpperCase() });
+  }, [me, linkedClient, navigate, ask]);
+
   const head = TITLES[view] ?? TITLES.tasks;
 
   if (checking) return <div className="h-screen" />;
