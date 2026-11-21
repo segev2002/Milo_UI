@@ -17,6 +17,8 @@ const GROUPS: { label: string; tone: "ink" | "warm" | "milo" | "claim"; actions:
       task_assignee: "שיוך משימה",
       task_edit: "עריכת משימה",
       task_file: "צירוף קובץ",
+      task_file_delete: "מחיקת קובץ",
+      task_due: "קביעת תאריך יעד",
       task_email: "פתיחת מייל",
       task_meeting: "קביעת פגישה",
     },
@@ -42,7 +44,7 @@ const GROUPS: { label: string; tone: "ink" | "warm" | "milo" | "claim"; actions:
       sale_edit: "עריכת שורה",
       sale_delete: "מחיקת שורה",
       sheet_add: "פתיחת גיליון",
-      sheet_edit: "שינוי שם גיליון",
+      sheet_edit: "עריכת גיליון",
       sheet_delete: "מחיקת גיליון",
       campaign_add: "יצירת מבצע",
       campaign_edit: "עריכת מבצע",
@@ -139,7 +141,7 @@ export function UserActivity() {
         </label>
       </div>
       {error && (
-        <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
+        <p className="mx-5 mt-5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[0.875rem] leading-relaxed text-blocked">
           {error}
         </p>
       )}
