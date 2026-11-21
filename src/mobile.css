@@ -29,8 +29,8 @@ body {
   /* Just above the home indicator, as an app's bar sits — not a full inset higher. */
   bottom: max(10px, calc(env(safe-area-inset-bottom) - 10px));
   transform: translateX(-50%);
-  width: min(calc(100vw - 28px), 440px);
-  height: 66px;
+  width: min(calc(100vw - 28px), 27.5rem);
+  height: 4.125rem;
   padding: 6px;
   border-radius: 34px;
   display: grid;
@@ -90,7 +90,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-muted);
   transition: color 0.2s;

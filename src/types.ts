@@ -169,7 +169,9 @@ export interface Task {
   /** Files console users attached; `key` opens via /agent/tasks/media. */
   files: { key: string; name: string; by: string; at: string }[];
   /** The card's history, oldest first. */
-  events: { type: "created" | "status" | "assignee" | "file" | "file_rename" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
+  events: { type: "created" | "status" | "assignee" | "file" | "file_rename" | "file_delete" | "due" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
+  /** The day the task is scheduled for ("YYYY-MM-DD"). */
+  due_date?: string | null;
   assignee: string | null;
   created_by: string | null;
   created_at: string;
@@ -395,6 +397,26 @@ export interface SalesSheet {
   /** "YYYY-MM-01", or null for a tab that is not a month. */
   month: string | null;
   position: number;
+  /** The tab's columns, in order; null is the standard ones (Sales.tsx DEFAULT_COLUMNS). */
+  columns?: SheetColumn[] | null;
+  /** The boxes under the tab; null is the standard summary (Sales.tsx DEFAULT_SUMMARY). */
+  summary?: SheetStat[] | null;
+}
+
+/** A column of a tab: a standard one by its field ("premium"), or one an admin added ("x_…"). */
+export interface SheetColumn {
+  id: string;
+  label: string;
+  /** Pixels at 16px text; drawn in rem, so it grows with the console's text. */
+  width: number;
+}
+
+/** A box of a tab's summary. `count`: the filled cells of the column; `count_value`: those that say `value`. */
+export interface SheetStat {
+  label: string;
+  op: "sum" | "avg" | "min" | "max" | "count" | "count_value";
+  column: string;
+  value?: string | null;
 }
 
 /** One sale. Amounts are numbers; the *_raw fields keep what was typed ("177K ₪", "עצמאי"). */
@@ -423,6 +445,8 @@ export interface SaleRow {
   salary_raw: string | null;
   /** Cells Sigal painted: column → "#rrggbb". */
   colors: Record<string, string>;
+  /** What was typed in the columns an admin added: column id → text. */
+  extra?: Record<string, string>;
 }
 
 /** One row of the sheet's "יוניסון" block. */

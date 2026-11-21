@@ -99,7 +99,7 @@ export function Users({ me }: { me: Identity }) {
   const active = users.filter((user) => user.active);
 
   const errorBox = error && (
-    <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
+    <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[0.875rem] leading-relaxed text-blocked">
       {error}
     </p>
   );

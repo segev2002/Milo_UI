@@ -45,10 +45,10 @@
   --rdp-accent-color: var(--color-ink-900);
   --rdp-accent-background-color: var(--color-ink-50);
   --rdp-today-color: var(--color-ink-700);
-  --rdp-day-height: 38px;
-  --rdp-day-width: 38px;
-  --rdp-day_button-height: 36px;
-  --rdp-day_button-width: 36px;
+  --rdp-day-height: 2.375rem;
+  --rdp-day-width: 2.375rem;
+  --rdp-day_button-height: 2.25rem;
+  --rdp-day_button-width: 2.25rem;
   --rdp-day_button-border-radius: var(--radius-lg);
   --rdp-selected-border: 0;
   font-size: 0.875rem;
@@ -66,8 +66,9 @@
 @layer base {
   html {
     color-scheme: light;
-    /* 17px instead of the browser's 16: the whole console a little bigger and easier to read. */
-    font-size: 106.25%;
+    /* 19px instead of the browser's 16: the whole console bigger and easier to read.
+       Sizes are in rem, so everything follows this one number. */
+    font-size: 118.75%;
   }
   body {
     background-color: var(--color-paper);
@@ -98,6 +99,43 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ui.tsx OverflowTip: the whole text of a box too small for it, fading in. */
+.overflow-tip {
+  /* Opacity only: its position is an inline transform. */
+  animation: tip-in 0.15s ease-out both;
+}
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ui.tsx LoadingBar: an emerald streak sliding across the top while Milo answers. */
+.loading-bar {
+  background: rgb(15 125 95 / 0.15);
+}
+.loading-bar span {
+  position: absolute;
+  inset-block: 0;
+  width: 35%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--color-ink-600), var(--color-milo), transparent);
+  animation: loading-slide 1.1s ease-in-out infinite;
+}
+@keyframes loading-slide {
+  from {
+    inset-inline-start: -35%;
+  }
+  to {
+    inset-inline-start: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar span {
+    animation-duration: 3s;
   }
 }
 

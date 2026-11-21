@@ -66,7 +66,7 @@ export function Owner() {
   return (
     <div className="space-y-5">
       {error && (
-        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] text-blocked">{error}</p>
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[0.875rem] text-blocked">{error}</p>
       )}
 
       <Card>
@@ -88,7 +88,7 @@ export function Owner() {
           <Empty title="אין סוכנויות" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[40rem] text-sm">
               <thead className="text-right text-xs text-muted">
                 <tr className="border-b border-line">
                   <th className="px-5 py-3 font-medium">סוכנות</th>
@@ -112,12 +112,12 @@ export function Owner() {
                       {KINDS.map((k) => (
                         <td key={k.kind} className="px-3 py-3 tabular-nums" title={`${calls(a.id, k.kind)} קריאות`}>
                           {usd(cost(a.id, k.kind))}
-                          <span className="block text-[12px] text-muted">{calls(a.id, k.kind)}</span>
+                          <span className="block text-[0.75rem] text-muted">{calls(a.id, k.kind)}</span>
                         </td>
                       ))}
                       <td className="px-3 py-3 font-medium tabular-nums">
                         {usd(total)}
-                        <span className="block text-[12px] text-muted">≈ ₪{ils.toFixed(0)}</span>
+                        <span className="block text-[0.75rem] text-muted">≈ ₪{ils.toFixed(0)}</span>
                       </td>
                       <td className="px-5 py-3">
                         {a.id === null ? "—" : <Tag tone={share >= 50 ? "claim" : share >= 20 ? "warm" : "ink"}>{share}%</Tag>}

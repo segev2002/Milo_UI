@@ -1,11 +1,13 @@
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { ArrowUpRight } from "lucide-react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { DayPicker } from "react-day-picker";
 import { he } from "react-day-picker/locale";
 import { LuCalendarDays, LuCheck, LuChevronDown } from "react-icons/lu";
+import { loading } from "../lib/api";
 import { insurerLogo } from "../lib/insurers";
 import type { ReportStatus } from "../types";
 
@@ -71,7 +73,7 @@ export function StatusPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium ${STATUS_STYLE[status]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium ${STATUS_STYLE[status]}`}
     >
       <span aria-hidden>{STATUS_MARK[status]}</span>
       {children ?? STATUS_TEXT[status]}
@@ -88,7 +90,7 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
     claim: "border-claim/30 bg-claim/10 text-claim",
   };
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[12px] font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[0.75rem] font-medium ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -98,7 +100,7 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
 export function InsurerName({ name, className = "" }: { name: string; className?: string }) {
   const logo = insurerLogo(name);
   if (!logo) return <span className={className}>{name}</span>;
-  return <img src={logo} alt={name} title={name} className="h-7 w-auto max-w-[110px] shrink-0 object-contain" />;
+  return <img src={logo} alt={name} title={name} className="h-7 w-auto max-w-[6.875rem] shrink-0 object-contain" />;
 }
 
 export function Button({
@@ -517,5 +519,96 @@ export function TiltCard({
         </div>
       </motion.div>
     </div>
+  );
+}
+
+/**
+ * A thin bar sliding along the top of the console while it waits for Milo — so a
+ * page that is still loading (the sales sheet, the tasks) says so. It shows only
+ * after a short wait, so quick calls and the background refreshes don't flicker it.
+ */
+export function LoadingBar() {
+  const busy = useSyncExternalStore(loading.subscribe, () => loading.get() > 0);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!busy) return setShown(false);
+    const timer = window.setTimeout(() => setShown(true), 250);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
+  return (
+    <div
+      role="progressbar"
+      aria-label="טוען"
+      aria-hidden={!shown}
+      className={`loading-bar pointer-events-none fixed inset-x-0 top-0 z-[80] h-[3px] overflow-hidden transition-opacity duration-200 ${
+        shown ? "opacity-100" : "opacity-0"
+      }`}
+    >
+      <span />
+    </div>
+  );
+}
+
+/** What may be cut short on screen: a cell of the sales sheet, and any text the
+    console truncates (`truncate`, `line-clamp-*`). */
+const CUT = ".milo-sheet .sheet-cell, .truncate, [class*='line-clamp-']";
+
+/**
+ * The whole text of a box that is too small for it, in the console's own tooltip —
+ * on hovering it for a moment. Mounted once (App.tsx); it watches the whole page,
+ * and shows only when the text really is cut.
+ */
+export function OverflowTip() {
+  const [tip, setTip] = useState<{ text: string; x: number; y: number; below: boolean } | null>(null);
+  useEffect(() => {
+    let timer = 0;
+    let current: HTMLElement | null = null;
+    const hide = () => {
+      window.clearTimeout(timer);
+      current = null;
+      setTip(null);
+    };
+    const over = (event: PointerEvent) => {
+      const el = (event.target as HTMLElement | null)?.closest<HTMLElement>(CUT) ?? null;
+      if (el === current) return;
+      hide();
+      if (!el) return;
+      current = el;
+      timer = window.setTimeout(() => {
+        const cut = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+        const text = (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement ? el.value : el.innerText).trim();
+        // Not while typing in it: the caret already shows the text.
+        if (!cut || !text || document.activeElement === el) return;
+        const box = el.getBoundingClientRect();
+        const below = box.top < 80;
+        setTip({ text, x: box.left + box.width / 2, y: below ? box.bottom + 8 : box.top - 8, below });
+      }, 350);
+    };
+    document.addEventListener("pointerover", over);
+    document.addEventListener("pointerdown", hide, true);
+    window.addEventListener("scroll", hide, true);
+    window.addEventListener("keydown", hide, true);
+    return () => {
+      hide();
+      document.removeEventListener("pointerover", over);
+      document.removeEventListener("pointerdown", hide, true);
+      window.removeEventListener("scroll", hide, true);
+      window.removeEventListener("keydown", hide, true);
+    };
+  }, []);
+  if (!tip) return null;
+  return createPortal(
+    <div
+      role="tooltip"
+      className="overflow-tip pointer-events-none fixed z-[90] max-w-sm rounded-lg bg-ink-900 px-3 py-2 text-sm font-medium leading-snug whitespace-pre-wrap text-champagne shadow-lg ring-1 ring-champagne/50"
+      style={{
+        left: Math.min(Math.max(tip.x, 200), window.innerWidth - 200),
+        top: tip.y,
+        transform: `translate(-50%, ${tip.below ? "0" : "-100%"})`,
+      }}
+    >
+      {tip.text}
+    </div>,
+    document.body,
   );
 }

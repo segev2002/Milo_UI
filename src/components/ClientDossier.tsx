@@ -43,7 +43,7 @@ function money(value: number): string {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h4 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
+      <h4 className="text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-muted">
         {title}
       </h4>
       {children}
@@ -133,10 +133,10 @@ function PolicyRow({ policy, metric }: { policy: DossierPolicy; metric: Metric }
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={!expandable}
-        className="grid w-full grid-cols-[110px_minmax(0,1fr)_auto_7.5rem_1rem] items-center gap-3 py-2 text-right"
+        className="grid w-full grid-cols-[6.875rem_minmax(0,1fr)_auto_7.5rem_1rem] items-center gap-3 py-2 text-right"
       >
         <InsurerName name={policy.company ?? "—"} className="truncate text-sm font-medium text-ink-900" />
-        <span className="truncate text-[14px] text-body">{policy.product}</span>
+        <span className="truncate text-[0.875rem] text-body">{policy.product}</span>
         {/* Active is the norm, so only the exceptions carry a status. */}
         <span>{!policy.active && <StatusPill status="empty">{policy.status || "לא פעיל"}</StatusPill>}</span>
         <span className="text-end text-sm font-medium tabular-nums text-ink-900">{amount}</span>
@@ -232,7 +232,7 @@ export function ClientDossierView({ dossier }: { dossier: ClientDossier }) {
             <div className="font-display text-lg font-semibold text-ink-900">
               {ils.format(premium.value)}
             </div>
-            <div className="text-[12px] text-muted">פרמיה חודשית</div>
+            <div className="text-[0.75rem] text-muted">פרמיה חודשית</div>
           </div>
         )}
       </div>

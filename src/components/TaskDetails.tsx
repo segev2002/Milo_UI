@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { addTaskEvent, ApiError, renameTaskFile, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
+import { addTaskEvent, ApiError, deleteTaskFile, renameTaskFile, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
-import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuTrash2, LuX } from "react-icons/lu";
 import { FileText, Pencil } from "lucide-react";
 import { byMilo, COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
-import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
+import { Button, confirmDialog, DateField, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
  * One task, opened: edit it, attach files, see the WhatsApp conversation behind
@@ -109,6 +109,13 @@ export function TaskDetails({
     void save(() => addTaskEvent(task.id, kind, kind === "email" ? "" : subject), "לא הצלחתי לרשום את זה במשימה.");
   }
 
+  /** Only a file a user attached can be removed; what the client sent on WhatsApp stays with the conversation. */
+  async function remove(file: PreviewFile) {
+    if (!(await confirmDialog({ title: `למחוק את "${file.name}" מהמשימה?`, confirmLabel: "מחיקה", danger: true }))) return;
+    void save(() => deleteTaskFile(task.id, file.key), "מחיקת הקובץ נכשלה.");
+  }
+  const attached = new Set(task.files.map((f) => f.key));
+
   /** Files on the task, and those the customer sent on WhatsApp — all attachable to a mail. */
   const files = [
     ...task.files.map((f) => previewFile(f.name, f.key)),
@@ -140,7 +147,7 @@ export function TaskDetails({
 
       {error && <p className="mx-4 mt-4 text-sm text-blocked sm:mx-6">{error}</p>}
 
-      <div className="grid flex-1 content-start gap-6 p-4 sm:p-6 md:grid-cols-[1fr_240px]">
+      <div className="grid flex-1 content-start gap-6 p-4 sm:p-6 md:grid-cols-[1fr_15rem]">
         <div className="min-w-0 space-y-6">
           {task.link_url && (
             <a
@@ -206,7 +213,7 @@ export function TaskDetails({
                       }
                     }}
                     aria-label="שם הקובץ"
-                    className="h-[50px] w-64 rounded-xl border border-ink-300 bg-white px-3 text-sm text-ink-900 outline-none"
+                    className="h-[3.125rem] w-64 rounded-xl border border-ink-300 bg-white px-3 text-sm text-ink-900 outline-none"
                   />
                 ) : (
                   <div
@@ -226,7 +233,7 @@ export function TaskDetails({
                       </span>
                       <span className="min-w-0">
                         <span className="block max-w-[14rem] truncate text-sm font-medium text-ink-900">{file.name}</span>
-                        <span className="block text-[12px] text-muted">{dragAs(file).label}</span>
+                        <span className="block text-[0.75rem] text-muted">{dragAs(file).label}</span>
                       </span>
                     </button>
                     <button
@@ -238,6 +245,18 @@ export function TaskDetails({
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
+                    {attached.has(file.key) && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void remove(file)}
+                        className="ml-1.5 rounded-md p-1.5 text-muted hover:bg-blocked/10 hover:text-blocked"
+                        aria-label={`מחיקת ${file.name}`}
+                        title="מחיקה מהמשימה"
+                      >
+                        <LuTrash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 ),
               )}
@@ -306,6 +325,23 @@ export function TaskDetails({
                 ...people.map((p) => ({ value: p.email, label: p.display_name || p.email })),
               ]}
             />
+          </Field>
+          <Field label="תאריך יעד">
+            <DateField
+              value={task.due_date ?? ""}
+              placeholder="ללא תאריך"
+              onChange={(due_date) => void save(() => updateTask(task.id, { due_date }), "קביעת התאריך נכשלה.")}
+            />
+            {task.due_date && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void save(() => updateTask(task.id, { due_date: "" }), "הסרת התאריך נכשלה.")}
+                className="mt-1 text-xs font-semibold text-muted hover:text-ink-900"
+              >
+                הסרת התאריך
+              </button>
+            )}
           </Field>
           <Field label="מקור">
             <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
@@ -522,6 +558,10 @@ function describe(event: Task["events"][number], people: Person[]): string {
       return `צירף/ה את ${event.text}`;
     case "file_rename":
       return `שינה/תה שם של קובץ: ${event.text}`;
+    case "file_delete":
+      return `מחק/ה את ${event.text}`;
+    case "due":
+      return event.text ? `קבע/ה תאריך יעד: ${dueLabel(event.text)}` : "הסיר/ה את תאריך היעד";
     case "email":
       return event.text ? `פתח/ה מייל ב-Gmail: ${event.text}` : "פתח/ה מייל ב-Gmail";
     case "meeting":
@@ -529,6 +569,11 @@ function describe(event: Task["events"][number], people: Person[]): string {
     case "polywizz":
       return event.text ?? "עדכון מ-PolyWizz";
   }
+}
+
+/** "יום ב׳, 30 בנוב׳" — a task's due day as the console shows it. */
+export function dueLabel(date: string): string {
+  return new Date(`${date}T00:00`).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "short" });
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -577,7 +622,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
   }, [chat]);
 
   return (
-    <div className="mt-3 max-h-[480px] space-y-2 overflow-y-auto rounded-xl bg-[#efeae2] p-4">
+    <div className="mt-3 max-h-[30rem] space-y-2 overflow-y-auto rounded-xl bg-[#efeae2] p-4">
       {chat.map((message, i) => {
         const milo = message.role === "milo";
         return (
@@ -599,7 +644,7 @@ export function ChatBubbles({ chat }: { chat: TaskChatMessage[] }) {
                   קובץ
                 </button>
               )}
-              <p className="mt-1 text-left text-[12px] text-muted">{when(message.at)}</p>
+              <p className="mt-1 text-left text-[0.75rem] text-muted">{when(message.at)}</p>
             </div>
           </div>
         );

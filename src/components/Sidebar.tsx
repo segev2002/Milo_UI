@@ -17,7 +17,7 @@ import {
 
 export type View = "activity" | "calls" | "chat" | "owner" | "playbook" | "sales" | "systems" | "tasks" | "users";
 
-const ICON = "h-[18px] w-[18px]";
+const ICON = "h-[1.125rem] w-[1.125rem]";
 
 /** `admin` items are hidden from everyone else. Hiding is courtesy, not
     security — the server refuses the calls behind them either way.
@@ -66,20 +66,20 @@ export function Sidebar({
 
   return (
     <aside
-      className={`flex w-[248px] shrink-0 flex-col bg-ink-900 text-champagne/90 overflow-hidden transition-[width,transform] duration-500 ease-in-out ${
-        collapsed ? "md:w-[72px]" : ""
+      className={`flex w-[15.5rem] shrink-0 flex-col bg-ink-900 text-champagne/90 overflow-hidden transition-[width,transform] duration-500 ease-in-out ${
+        collapsed ? "md:w-[4.5rem]" : ""
       } ${className}`}
     >
       {/* 18px either side centres the logo in the 72px rail. */}
       <div
-        className={`flex items-center gap-2.5 px-6 pb-6 pt-7 transition-[padding] duration-500 ease-in-out ${
-          collapsed ? "md:px-[18px]" : ""
+        className={`flex items-center gap-2.5 px-6 pb-5 pt-6 transition-[padding] duration-500 ease-in-out ${
+          collapsed ? "md:px-[1.125rem]" : ""
         }`}
       >
         <MiloNotifications enabled={me.is_admin} onOpenCampaign={onOpenCampaign} />
         <div className={`min-w-0 flex-1 whitespace-nowrap ${fade}`}>
-          <p className="font-display text-[17px] font-semibold leading-none text-champagne">Milo</p>
-          <p className="mt-1 text-[12px] tracking-wide text-champagne/55">{me.agency || "סוכנות הביטוח של סיגל"}</p>
+          <p className="font-display text-[1.0625rem] font-semibold leading-none text-champagne">Milo</p>
+          <p className="mt-1 text-[0.75rem] tracking-wide text-champagne/55">{me.agency || "סוכנות הביטוח של סיגל"}</p>
         </div>
         <button
           onClick={onClose}
@@ -90,7 +90,7 @@ export function Sidebar({
         </button>
       </div>
 
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3">
         {NAV.filter((item) => (!item.admin || me.is_admin) && (!item.owner || me.is_owner)).map((item) => {
           const active = view === item.view;
           return (
@@ -101,7 +101,7 @@ export function Sidebar({
               aria-label={item.label}
               title={collapsed ? item.label : undefined}
               // 15px keeps the icon centred in the rail, so it stays put while the labels fade.
-              className={`flex w-full items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-xl px-[0.9375rem] py-2 text-sm font-medium transition-colors ${
                 active
                   ? "bg-champagne text-ink-900"
                   : "text-champagne/70 hover:bg-white/8 hover:text-champagne"
@@ -120,13 +120,13 @@ export function Sidebar({
           onClick={onSignOut}
           aria-label="יציאה"
           title={collapsed ? "יציאה" : undefined}
-          className="flex w-full items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm font-medium text-champagne/70 transition-colors hover:bg-white/8 hover:text-champagne"
+          className="flex w-full items-center gap-3 rounded-xl px-[0.9375rem] py-2 text-sm font-medium text-champagne/70 transition-colors hover:bg-white/8 hover:text-champagne"
         >
           <LuLogOut className={`${ICON} shrink-0 text-champagne/60`} />
           <span className={`whitespace-nowrap ${fade}`}>יציאה</span>
         </button>
         {health?.all_integrations_mocked && (
-          <p className={`rounded-lg bg-white/8 px-2.5 py-2 text-[12px] leading-relaxed text-champagne/70 ${hide}`}>
+          <p className={`rounded-lg bg-white/8 px-2.5 py-2 text-[0.75rem] leading-relaxed text-champagne/70 ${hide}`}>
             כל האינטגרציות מדומות — התוצאות הן נתוני דוגמה, לא ה-CRM האמיתי.
           </p>
         )}

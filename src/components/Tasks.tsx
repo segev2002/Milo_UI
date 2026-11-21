@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { Identity, Person, Task, TaskStatus } from "../types";
-import { LuPaperclip, LuPlus, LuRefreshCw, LuX } from "react-icons/lu";
+import { LuCalendarDays, LuPaperclip, LuPlus, LuRefreshCw, LuSearch, LuX } from "react-icons/lu";
 import { FileText } from "lucide-react";
-import { TaskDetails } from "./TaskDetails";
+import { dueLabel, TaskDetails } from "./TaskDetails";
 import { Button, FIELD, Select, Tag, when } from "./ui";
 
 /**
@@ -41,6 +41,8 @@ export function Tasks({ me }: { me: Identity }) {
   const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
   const [assignee, setAssignee] = useCached("tasks.assignee", me.email);
+  //: Search by the person's name or the task's title.
+  const [query, setQuery] = useState("");
   //: `?task=<id>` — the link in the "שויכה אליך משימה" email — opens that task.
   const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get("task"));
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
@@ -83,7 +85,12 @@ export function Tasks({ me }: { me: Identity }) {
     }
   }
 
-  const shown = (tasks ?? []).filter((t) => !assignee || t.assignee === assignee);
+  const q = query.trim().toLowerCase();
+  const shown = (tasks ?? []).filter(
+    (t) =>
+      (!assignee || t.assignee === assignee) &&
+      (!q || taskTitle(t).toLowerCase().includes(q) || (t.name ?? "").toLowerCase().includes(q)),
+  );
   //: Every user, the signed-in one first; an assignee who is no longer a user still gets a line.
   const filterOptions = [
     { value: "", label: "כל המשימות" },
@@ -110,6 +117,17 @@ export function Tasks({ me }: { me: Identity }) {
         <div className="w-48">
           <Select value={assignee} onChange={setAssignee} options={filterOptions} className="py-1.5 text-xs font-medium" />
         </div>
+        <label className="relative w-full max-w-xs">
+          <LuSearch className="pointer-events-none absolute inset-y-0 right-3 z-10 my-auto h-4 w-4 text-muted" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="חיפוש לפי שם או כותרת"
+            aria-label="חיפוש משימות"
+            className={`${FIELD} py-1.5 pr-9 text-sm`}
+          />
+        </label>
         {/* What the card colors mean. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs text-muted">
           <span className="flex items-center gap-1.5">
@@ -136,7 +154,7 @@ export function Tasks({ me }: { me: Identity }) {
       </div>
 
       {error && (
-        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
+        <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[0.875rem] leading-relaxed text-blocked">
           {error}
         </p>
       )}
@@ -145,7 +163,7 @@ export function Tasks({ me }: { me: Identity }) {
         <p className="px-5 py-12 text-center text-sm text-muted">טוען…</p>
       ) : (
         // On a phone the columns stack: new on top, then in progress, then done.
-        <div className="grid gap-4 @md:grid-cols-2 @[60rem]:grid-cols-4">
+        <div className="grid gap-4 @md:grid-cols-2 @[52rem]:grid-cols-4">
           {BOARD.map((column) => {
             const cards = shown.filter(
               (t) => t.status === column.status && (column.claims === undefined || (t.team === "claims") === column.claims),
@@ -162,13 +180,13 @@ export function Tasks({ me }: { me: Identity }) {
                   setDragOver(null);
                   void move(e.dataTransfer.getData("text/plain"), column.status);
                 }}
-                className={`flex min-h-[120px] flex-col rounded-2xl border p-3 transition-colors md:min-h-[200px] ${
+                className={`flex min-h-[7.5rem] flex-col rounded-2xl border p-3 transition-colors md:min-h-[12.5rem] ${
                   dragOver === column.label ? "border-ink-300 bg-ink-50" : "border-line bg-paper"
                 }`}
               >
                 <h2 className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold text-ink-900">
                   {column.label}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-medium text-muted">
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[0.75rem] font-medium text-muted">
                     {cards.length}
                   </span>
                 </h2>
@@ -213,6 +231,12 @@ export function Tasks({ me }: { me: Identity }) {
 }
 
 /** What the card leads with: its title, else Milo's summary, else the last message. */
+/** Today as "YYYY-MM-DD", on this computer's clock. */
+function localDay(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function taskTitle(task: Task): string {
   return task.title || task.summary || task.messages[task.messages.length - 1]?.text || "ללא כותרת";
 }
@@ -275,11 +299,24 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
           </Tag>
         )}
         {task.link_url && <Tag tone="milo">{task.link_label || "קישור"}</Tag>}
-        <span className="mr-auto text-[12px] text-muted">{when(task.last_message_at)}</span>
+        {task.due_date && (
+          // Past its day and not done: red.
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.75rem] font-semibold ${
+              task.status !== "done" && task.due_date < localDay()
+                ? "border-blocked/40 bg-blocked/10 text-blocked"
+                : "border-line bg-white text-ink-700"
+            }`}
+          >
+            <LuCalendarDays className="h-3.5 w-3.5" aria-hidden />
+            {dueLabel(task.due_date)}
+          </span>
+        )}
+        <span className="mr-auto text-[0.75rem] text-muted">{when(task.last_message_at)}</span>
         {assignee && (
           <span
             title={assignee}
-            className="max-w-[45%] truncate rounded-full bg-ink-900 px-2 py-0.5 text-[12px] font-semibold text-champagne"
+            className="max-w-[45%] truncate rounded-full bg-ink-900 px-2 py-0.5 text-[0.75rem] font-semibold text-champagne"
           >
             {assignee}
           </span>

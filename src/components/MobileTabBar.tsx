@@ -5,7 +5,7 @@ import type { View } from "./Sidebar";
 
 type Tab = { view: View | "more"; label: string; icon: ReactNode };
 
-const ICON = "h-[22px] w-[22px]";
+const ICON = "h-[1.375rem] w-[1.375rem]";
 
 /**
  * The phone's navigation, as an app has it: a glass bar at the bottom with the

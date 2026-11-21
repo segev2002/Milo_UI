@@ -6,8 +6,8 @@ export type Theme = "light" | "dark";
 export const THEMES: Theme[] = ["light", "dark"];
 
 const OPTIONS: { value: Theme; label: string; icon: ReactNode }[] = [
-  { value: "light", label: "בהיר", icon: <LuSun className="h-[18px] w-[18px]" /> },
-  { value: "dark", label: "כהה", icon: <LuMoon className="h-[18px] w-[18px]" /> },
+  { value: "light", label: "בהיר", icon: <LuSun className="h-[1.125rem] w-[1.125rem]" /> },
+  { value: "dark", label: "כהה", icon: <LuMoon className="h-[1.125rem] w-[1.125rem]" /> },
 ];
 
 /**
