@@ -172,8 +172,12 @@ export async function removeUser(email: string): Promise<void> {
 
 /* --- חיבורים של הסוכנות -------------------------------------------------- */
 
-export async function whatsappCode(): Promise<WhatsAppCode> {
-  return request<WhatsAppCode>("/auth/users/whatsapp-code", { method: "POST" });
+/** A code for `email`'s phone (that user's tasks and rights on WhatsApp); none: the admin's own. */
+export async function whatsappCode(email?: string): Promise<WhatsAppCode> {
+  return request<WhatsAppCode>("/auth/users/whatsapp-code", {
+    method: "POST",
+    ...(email ? { body: JSON.stringify({ email }) } : {}),
+  });
 }
 
 /* --- חיבורים: the agency's systems and Google -------------------------------- */
