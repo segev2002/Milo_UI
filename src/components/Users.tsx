@@ -3,6 +3,8 @@ import { ApiError, addUser, listUsers, removeUser, renameUser } from "../lib/api
 import { useCached } from "../lib/cache";
 import type { AllowedUser, Identity } from "../types";
 import { LuPencil, LuTrash, LuUserPlus } from "react-icons/lu";
+import { SiWhatsapp } from "react-icons/si";
+import { WhatsAppWindow } from "./Systems";
 import { Modal } from "./Tasks";
 import { Button, Card, CardHead, confirmDialog, Empty, Tag, when } from "./ui";
 
@@ -29,6 +31,8 @@ export function Users({ me }: { me: Identity }) {
   const [adding, setAdding] = useState(false);
   //: The user open in the pencil's dialog: their name and whether they are an admin.
   const [editing, setEditing] = useState<{ email: string; name: string; isAdmin: boolean } | null>(null);
+  //: The user whose phone is being connected to Milo on WhatsApp.
+  const [connecting, setConnecting] = useState<AllowedUser | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -241,6 +245,15 @@ export function Users({ me }: { me: Identity }) {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
+                    onClick={() => setConnecting(user)}
+                    className="rounded-lg p-2 text-muted hover:bg-paper hover:text-[#25d366]"
+                    aria-label={`חיבור הוואטסאפ של ${user.display_name || user.email} למילו`}
+                    title="חיבור וואטסאפ למילו"
+                  >
+                    <SiWhatsapp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       setError(null);
                       setEditing({ email: user.email, name: user.display_name ?? "", isAdmin: user.is_admin });
@@ -274,6 +287,13 @@ export function Users({ me }: { me: Identity }) {
           <Empty title="אין עדיין משתמשים ברשימה" />
         )}
       </Card>
+      {connecting && (
+        <WhatsAppWindow
+          email={connecting.email}
+          name={connecting.display_name || connecting.email}
+          onClose={() => setConnecting(null)}
+        />
+      )}
     </div>
   );
 }

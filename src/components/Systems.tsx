@@ -311,7 +311,7 @@ function KeysWindow({ system, onClose, onSaved }: { system: SystemStatus; onClos
 /** Drive, Calendar and Gmail, each with its own logo and whether Google granted it. */
 const GOOGLE_SERVICES: { key: "drive" | "calendar" | "gmail"; name: string; what: string; logo: ReactNode }[] = [
   { key: "drive", name: "Google Drive", what: "ניתוחי התיק שמילו יוצר", logo: <SiGoogledrive className="h-7 w-7 text-[#1a73e8]" /> },
-  { key: "calendar", name: "יומן Google", what: "זמנים פנויים וקביעת פגישות", logo: <SiGooglecalendar className="h-7 w-7 text-[#4285f4]" /> },
+  { key: "calendar", name: "יומן Google", what: "הפגישות של היום, זמנים פנויים וקביעת פגישות", logo: <SiGooglecalendar className="h-7 w-7 text-[#4285f4]" /> },
   { key: "gmail", name: "Gmail", what: "שליחת מיילים בשם הסוכנות", logo: <SiGmail className="h-7 w-7 text-[#ea4335]" /> },
 ];
 
@@ -389,25 +389,28 @@ function GoogleWindow({ google, onClose }: { google: SystemsState["google"]; onC
   );
 }
 
-/** The agent's own phone on Milo's one number: a one-time code sent from that phone. */
-function WhatsAppWindow({ onClose }: { onClose: () => void }) {
+/** The agent's own phone on Milo's one number: a one-time code sent from that phone.
+ * With `email` (from the users page), the phone becomes that user's. */
+export function WhatsAppWindow({ onClose, email, name }: { onClose: () => void; email?: string; name?: string }) {
   const [code, setCode] = useState<WhatsAppCode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    whatsappCode()
+    whatsappCode(email)
       .then(setCode)
       .catch((exc) => setError(exc instanceof ApiError ? exc.message : "הפעולה נכשלה."));
   }, []);
 
   return (
-    <Window title="וואטסאפ של הסוכן/ת" logo={<SiWhatsapp className="h-9 w-9 text-[#25d366]" />} onClose={onClose}>
+    <Window title={name ? `וואטסאפ של ${name}` : "וואטסאפ של הסוכן/ת"} logo={<SiWhatsapp className="h-9 w-9 text-[#25d366]" />} onClose={onClose}>
       {error && <p className={ERROR_BOX}>{error}</p>}
       {!code && !error && <p className="text-muted">יוצר קוד…</p>}
       {code && (
         <>
           <div className="rounded-xl border border-line bg-paper px-4 py-4">
-            <p className="text-sm font-semibold text-muted">1 · שלחו את הקוד הזה למילו מהטלפון של הסוכן/ת</p>
+            <p className="text-sm font-semibold text-muted">
+              1 · שלחו את הקוד הזה למילו מהטלפון של {name || "הסוכן/ת"}
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <span dir="ltr" className="font-mono text-3xl font-bold tracking-wider text-ink-900">
                 {code.code}
