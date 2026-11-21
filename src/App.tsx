@@ -304,7 +304,8 @@ export default function App() {
             />
             <Route path="/playbook" element={<Playbook busy={busy} onRun={run} />} />
             <Route path="/tasks" element={<Tasks me={me} />} />
-            <Route path="/calls" element={<Calls />} />
+            {/* Rendered below, always: a recording goes on while the user works elsewhere. */}
+            <Route path="/calls" element={null} />
             <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
             <Route path="/owner" element={me.is_owner ? <Owner /> : <Navigate to="/tasks" replace />} />
@@ -324,6 +325,9 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/tasks" replace />} />
           </Routes>
+          <div hidden={view !== "calls"}>
+            <Calls active={view === "calls"} />
+          </div>
         </div>
       </main>
     </div>

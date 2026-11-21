@@ -4,7 +4,7 @@ import { addTaskEvent, ApiError, renameTaskFile, taskConversation, taskMediaPdfU
 import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
 import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuX } from "react-icons/lu";
 import { FileText, Pencil } from "lucide-react";
-import { COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
+import { byMilo, COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
@@ -281,7 +281,7 @@ export function TaskDetails({
                 </li>
               ))}
               <li className="text-xs text-muted">
-                {task.kind ? "מילו פתח את המשימה" : "המשימה נוצרה"} · {when(task.created_at)}
+                {byMilo(task) ? "מילו פתח את המשימה" : "המשימה נוצרה"} · {when(task.created_at)}
               </li>
             </ul>
           </Section>

@@ -42,6 +42,9 @@ export interface AiRecorderProps {
   deviceId?: string;
   /** Called once microphone access was granted — device names are readable from then on. */
   onPermission?: () => void;
+  /** Called on every phase change, with the recorded time so far and when it was measured
+      (performance.now()) — so a page can show a running clock elsewhere. */
+  onStatus?: (status: RecorderStatus) => void;
   /** Stop automatically after this many seconds. Default: no limit. */
   maxDuration?: number;
   /** Bits per second of the recording. Default: the browser's. */
@@ -53,7 +56,8 @@ export interface AiRecorderProps {
   className?: string;
 }
 
-type Phase = "idle" | "requesting" | "recording" | "paused" | "recorded" | "denied" | "unavailable";
+export type RecorderStatus = { phase: Phase; elapsedMs: number; at: number };
+export type Phase = "idle" | "requesting" | "recording" | "paused" | "recorded" | "denied" | "unavailable";
 type Recording = { url: string | null; duration: number; peaks: number[] };
 
 const PEAKS = 36;
@@ -127,6 +131,7 @@ export function AiRecorder({
   onDelete,
   deviceId,
   onPermission,
+  onStatus,
   maxDuration,
   bitrate,
   accent = "var(--color-ink-700)",
@@ -156,7 +161,7 @@ export function AiRecorder({
   const urlRef = useRef<string | null>(null);
   const aliveRef = useRef(true);
   const phaseRef = useRef<Phase>("idle");
-  const live = useRef({ onRecordingComplete, onDelete, maxDuration });
+  const live = useRef({ onRecordingComplete, onDelete, maxDuration, onStatus });
   const finishRef = useRef<(commit: boolean) => void>(() => {});
 
   const progress = useMotionValue(0);
@@ -167,7 +172,7 @@ export function AiRecorder({
   const capturing = phase === "recording" || phase === "paused";
 
   useEffect(() => {
-    live.current = { onRecordingComplete, onDelete, maxDuration };
+    live.current = { onRecordingComplete, onDelete, maxDuration, onStatus };
     phaseRef.current = phase;
   });
 
@@ -180,6 +185,10 @@ export function AiRecorder({
   };
 
   const elapsedNow = () => baseRef.current + (phaseRef.current === "recording" ? performance.now() - segRef.current : 0);
+
+  useEffect(() => {
+    live.current.onStatus?.({ phase, elapsedMs: elapsedNow(), at: performance.now() });
+  }, [phase]);
 
   const begin = () => {
     levelsRef.current = [];

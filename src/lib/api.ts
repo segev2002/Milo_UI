@@ -246,6 +246,8 @@ export async function createTask(task: {
   phone?: string;
   assignee?: string;
   team?: "claims";
+  /** A follow-up Milo suggested from a call, approved by the user: Milo opened it. */
+  by_milo?: boolean;
 }): Promise<Task> {
   return request<Task>("/agent/tasks", { method: "POST", body: JSON.stringify(task) });
 }
