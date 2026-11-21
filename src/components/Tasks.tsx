@@ -217,8 +217,14 @@ export function taskTitle(task: Task): string {
   return task.title || task.summary || task.messages[task.messages.length - 1]?.text || "ללא כותרת";
 }
 
+/** What Milo opened: from WhatsApp (`kind`), or a call's follow-up the user approved. */
+export const byMilo = (task: Task) => !!task.kind || task.created_by === MILO;
+/** `created_by` (and an event's `by`) of what Milo opened from the console. */
+export const MILO = "milo";
+
 export function sourceLabel(task: Task): string {
   if (task.team) return TEAM_LABEL[task.team];
+  if (task.created_by === MILO) return "מילו · שיחה";
   if (task.kind === "clients") return "מילו · לקוח";
   if (task.kind === "new_clients") return "מילו · לקוח חדש";
   return "ידני";
@@ -227,11 +233,12 @@ export function sourceLabel(task: Task): string {
 /** Claim color for claims, ultra violet for what Milo opened. */
 export function sourceTone(task: Task): "claim" | "milo" | "ink" {
   if (task.team === "claims") return "claim";
-  return task.kind ? "milo" : "ink";
+  return byMilo(task) ? "milo" : "ink";
 }
 
 export function personName(people: Person[], email: string | null): string {
   if (!email) return "";
+  if (email === MILO) return "מילו";
   return people.find((p) => p.email === email)?.display_name || email.split("@")[0];
 }
 
@@ -251,8 +258,8 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
     >
       <div className="flex items-start gap-2">
         {/* What Milo opened carries his face, so it reads before the color does. */}
-        {task.kind && (
-          <img src="/milo.png" alt="מילו" title="מילו פתח מהוואטסאפ" className="h-6 w-6 shrink-0 rounded-md bg-champagne object-cover" />
+        {byMilo(task) && (
+          <img src="/milo.png" alt="מילו" title={task.kind ? "מילו פתח מהוואטסאפ" : "מילו פתח מהשיחה"} className="h-6 w-6 shrink-0 rounded-md bg-champagne object-cover" />
         )}
         <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900">{taskTitle(task)}</p>
       </div>

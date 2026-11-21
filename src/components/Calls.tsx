@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { LuCheck, LuCopy, LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
-import { ApiError, callAudio, deleteCall, getCall, listCalls, retryCall, uploadCall } from "../lib/api";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
+import { LuCheck, LuCopy, LuListTodo, LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
+import { ApiError, callAudio, createTask, deleteCall, getCall, listCalls, listPeople, retryCall, uploadCall } from "../lib/api";
 import { useCached } from "../lib/cache";
-import type { CallStatus, CallTranscription } from "../types";
-import { AiRecorder, RecordingPlayer } from "./AiRecorder";
+import type { CallStatus, CallTranscription, Person } from "../types";
+import { AiRecorder, RecordingPlayer, type RecorderStatus } from "./AiRecorder";
 import { Modal } from "./Tasks";
 import { Button, Card, Empty, FIELD, Select, Tag, Typing } from "./ui";
 
@@ -14,6 +16,12 @@ import { Button, Card, Empty, FIELD, Select, Tag, Typing } from "./ui";
  * writes the summary. The recording is kept too, in a folder per client. One card
  * per call — search them by name, ID or phone; open one for the summary, the
  * whole transcript and the recording.
+ *
+ * The page stays mounted while the user is elsewhere in the console (App.tsx), so
+ * a recording keeps going; a pill at the bottom says so and leads back. When a
+ * call Milo was working on is done, that call opens with the tasks from its
+ * "משימות להמשך" in a panel in his colour on its left, and he opens (as Milo)
+ * only what the user approves.
  */
 
 const STATUS: Record<CallStatus, { label: string; tone: "neutral" | "warm" | "ink" | "milo" | "claim" }> = {
@@ -28,6 +36,19 @@ const POLL_MS = 5_000;
 /** Speech, small: about 14MB an hour. */
 const BITRATE = 32_000;
 const MIC_KEY = "milo.calls.mic";
+
+/** What the user types to delete a call. */
+const DELETE_WORD = "מחיקה";
+
+/** Calls whose offer was answered (approved or "לא עכשיו"), per browser: not offered again. */
+const HANDLED_KEY = "milo.calls.tasks-handled";
+function loadHandled(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HANDLED_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
 
 const message = (exc: unknown, fallback: string) => (exc instanceof ApiError ? exc.message : fallback);
 
@@ -60,11 +81,56 @@ function matches(c: CallTranscription, query: string): boolean {
 const dateTime = (iso: string) =>
   new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export function Calls() {
+export function Calls({ active = true }: { active?: boolean }) {
   const [calls, setCalls] = useCached<CallTranscription[] | null>("calls.list", null);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [query, setQuery] = useCached("calls.query", "");
+  //: The recorder's state, for the pill shown on other pages.
+  const [recorder, setRecorder] = useState<RecorderStatus | null>(null);
+  //: Calls that just finished with tasks to offer, waiting to be opened.
+  const [suggest, setSuggest] = useState<CallTranscription[]>([]);
+  //: Calls whose offer was answered.
+  const [handled, setHandled] = useState(loadHandled);
+  const markHandled = (id: string, on: boolean) =>
+    setHandled((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      try {
+        localStorage.setItem(HANDLED_KEY, JSON.stringify([...next].slice(-500)));
+      } catch {
+        // Storage blocked: remembered until the page reloads.
+      }
+      return next;
+    });
+  //: Each call's last seen status: a call seen working and now done gets the offer.
+  const seen = useRef(new Map<string, CallStatus>());
+
+  //: A call's own popup belongs to this page: it closes when the user leaves.
+  useEffect(() => {
+    if (!active) setOpenId(null);
+  }, [active]);
+
+  useEffect(() => {
+    for (const c of calls ?? []) {
+      const before = seen.current.get(c.id);
+      seen.current.set(c.id, c.status);
+      if (c.status !== "done" || !before || before === "done" || before === "failed") continue;
+      getCall(c.id)
+        .then((full) => {
+          if (followUps(full.summary).length) setSuggest((prev) => (prev.some((p) => p.id === full.id) ? prev : [...prev, full]));
+        })
+        .catch(() => undefined);
+    }
+  }, [calls]);
+
+  //: On this page, a call that just finished opens by itself, Milo's offer beside it.
+  useEffect(() => {
+    if (!active || openId || !suggest[0]) return;
+    setOpenId(suggest[0].id);
+    setSuggest((prev) => prev.slice(1));
+  }, [active, openId, suggest]);
 
   const refresh = useCallback(async () => {
     try {
@@ -102,7 +168,7 @@ export function Calls() {
 
   return (
     <div className="space-y-5">
-      <Recorder onUploaded={added} onError={setError} />
+      <Recorder onUploaded={added} onError={setError} onStatus={setRecorder} active={active} />
 
       {error && (
         <p className="rounded-xl border border-[#f3d3d0] bg-[#fbeceb] px-4 py-3 text-[14px] leading-relaxed text-blocked">
@@ -156,16 +222,233 @@ export function Calls() {
           id={openId}
           onClose={() => setOpenId(null)}
           onChange={(call) => setCalls((prev) => prev?.map((c) => (c.id === call.id ? { ...c, ...call } : c)) ?? null)}
+          offer={!handled.has(openId)}
+          onOffer={(on) => markHandled(openId, !on)}
         />
       )}
+
+      {!active && recorder && <RecordingPill status={recorder} />}
+      {!active && !recorder && suggest[0] && <SuggestionPill call={suggest[0]} />}
     </div>
   );
 }
 
-/** One call: open it with a click; delete it from here, with a second click to confirm. */
+/** On another page while recording: a running clock, and a click back to the recorder. */
+function RecordingPill({ status }: { status: RecorderStatus }) {
+  const navigate = useNavigate();
+  const [, tick] = useState(0);
+  const recording = status.phase === "recording";
+  useEffect(() => {
+    if (!recording) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [recording]);
+  const ms = status.elapsedMs + (recording ? performance.now() - status.at : 0);
+  return createPortal(
+    <button
+      onClick={() => navigate("/calls")}
+      className="fixed bottom-[calc(96px+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-line bg-white px-4 py-2.5 text-sm font-medium text-ink-900 shadow-lg transition-colors hover:bg-paper md:bottom-6"
+    >
+      <span className={`h-2.5 w-2.5 rounded-full bg-blocked ${recording ? "animate-pulse" : "opacity-40"}`} />
+      {recording ? "מקליט" : "ההקלטה מושהית"}
+      <span dir="ltr" className="tabular-nums text-muted">
+        {clock(ms / 1000) || "0:00"}
+      </span>
+      <span className="text-muted">· חזרה להקלטה</span>
+    </button>,
+    document.body,
+  );
+}
+
+/** On another page when Milo has tasks to offer: a word, and a click to the panel. */
+function SuggestionPill({ call }: { call: CallTranscription }) {
+  const navigate = useNavigate();
+  return createPortal(
+    <button
+      onClick={() => navigate("/calls")}
+      className="fixed bottom-[calc(96px+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-milo bg-white px-3 py-2 text-sm font-medium text-ink-900 shadow-lg transition-colors hover:bg-paper md:bottom-6"
+    >
+      <img src="/milo.png" alt="" className="h-6 w-6 rounded-md bg-champagne object-cover" />
+      מילו מציע משימות מהשיחה עם {call.client_name}
+    </button>,
+    document.body,
+  );
+}
+
+/** The bullets under "## משימות להמשך" in Milo's summary — none when it says "לא עלה בשיחה". */
+function followUps(summary: string | null | undefined): string[] {
+  if (!summary) return [];
+  const out: string[] = [];
+  let inside = false;
+  for (const raw of summary.split("\n")) {
+    const line = raw.trim();
+    const heading = line.match(/^#{1,4}\s+(.*)$/);
+    if (heading) {
+      inside = heading[1].replace(/\*\*/g, "").trim() === "משימות להמשך";
+      continue;
+    }
+    const bullet = inside && line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (bullet) {
+      const text = bullet[1].replace(/\*\*/g, "").trim();
+      if (text && !text.includes("לא עלה בשיחה")) out.push(text);
+    }
+  }
+  return out;
+}
+
+/** Milo's offer after a call: the follow-ups as tasks, each one approved (and edited) or left out. */
+function TaskSuggestions({ call, onClose }: { call: CallTranscription; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [items, setItems] = useState(() =>
+    followUps(call.summary).map((text) => ({ text, title: text.slice(0, 200), on: true, assignee: call.created_by ?? "" })),
+  );
+  const [people, setPeople] = useState<Person[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [opened, setOpened] = useState<number | null>(null);
+
+  useEffect(() => {
+    listPeople()
+      .then((list) => {
+        setPeople(list);
+        // One who is not on the list (anymore) is not offered as the assignee.
+        setItems((prev) => prev.map((it) => (list.some((p) => p.email === it.assignee) ? it : { ...it, assignee: "" })));
+      })
+      .catch(() => setItems((prev) => prev.map((it) => ({ ...it, assignee: "" }))));
+  }, []);
+
+  const chosen = items.filter((it) => it.on && it.title.trim());
+  const set = (i: number, change: Partial<(typeof items)[number]>) =>
+    setItems((prev) => prev.map((it, j) => (j === i ? { ...it, ...change } : it)));
+
+  async function approve() {
+    setSaving(true);
+    setError(null);
+    let done = 0;
+    const left: typeof items = [];
+    for (const it of items) {
+      if (!it.on || !it.title.trim()) {
+        left.push(it);
+        continue;
+      }
+      try {
+        await createTask({
+          title: it.title.trim(),
+          description: `מתוך השיחה עם ${call.client_name} (${dateTime(call.created_at)}):\n${it.text}`,
+          name: call.client_name,
+          ...(call.phone && { phone: call.phone }),
+          ...(it.assignee && { assignee: it.assignee }),
+          by_milo: true,
+        });
+        done++;
+      } catch (exc) {
+        left.push(it);
+        setError(message(exc, "חלק מהמשימות לא נפתחו."));
+      }
+    }
+    setSaving(false);
+    // What failed stays on screen to try again; what was opened is gone from it.
+    setItems(left.map((it) => ({ ...it, on: it.on && !!it.title.trim() })));
+    if (left.every((it) => !it.on)) setOpened(done);
+  }
+
+  return (
+    <section aria-label="משימות שמילו מציע" className="rounded-xl border border-milo bg-milo/15 shadow-sm">
+      <div className="space-y-4 p-5">
+        <div className="flex items-start gap-3">
+          <img src="/milo.png" alt="מילו" className="h-10 w-10 shrink-0 rounded-xl bg-champagne object-cover" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-ink-900">
+              {opened === null ? "לפתוח משימות מהשיחה?" : opened ? `נפתחו ${opened === 1 ? "משימה אחת" : `${opened} משימות`}` : "לא נפתחו משימות"}
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {opened === null
+                ? `סיימתי לסכם את השיחה עם ${call.client_name}. אלה המשימות שעלו בה — סמנו מה לפתוח, ואני אפתח אותן.`
+                : "הן מחכות בלוח המשימות."}
+            </p>
+          </div>
+        </div>
+
+        {opened === null ? (
+          <>
+            <ul className="space-y-2.5">
+              {items.map((it, i) => (
+                <li
+                  key={i}
+                  className={`rounded-xl border p-3 transition-colors ${it.on ? "border-milo/40 bg-white" : "border-line bg-white/50 opacity-70"}`}
+                >
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={it.on}
+                      onChange={(e) => set(i, { on: e.target.checked })}
+                      className="mt-2.5 h-4 w-4 shrink-0 accent-ink-900"
+                      aria-label="לפתוח את המשימה"
+                    />
+                    <textarea
+                      value={it.title}
+                      onChange={(e) => set(i, { title: e.target.value.slice(0, 200) })}
+                      disabled={!it.on}
+                      rows={2}
+                      className={`${FIELD} resize-none text-[15px] font-semibold leading-snug text-ink-900`}
+                    />
+                  </label>
+                  {it.on && people.length > 0 && (
+                    <div className="mr-7 mt-2 w-56">
+                      <Select
+                        value={it.assignee}
+                        onChange={(v) => set(i, { assignee: v })}
+                        options={[{ value: "", label: "בלי אחראי" }, ...people.map((p) => ({ value: p.email, label: p.display_name || p.email }))]}
+                        className="py-1.5 text-xs"
+                      />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {error && <p className="text-sm text-blocked">{error}</p>}
+            <div className="flex flex-wrap gap-2 border-t border-milo/30 pt-4">
+              <Button onClick={() => void approve()} disabled={saving || !chosen.length}>
+                {saving ? <Typing /> : <LuCheck className="h-4 w-4" />}
+                {chosen.length === 1 ? "אישור ופתיחת המשימה" : `אישור ופתיחת ${chosen.length} משימות`}
+              </Button>
+              <Button variant="ghost" onClick={onClose} disabled={saving}>
+                לא עכשיו
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-2 border-t border-milo/30 pt-4">
+            {opened > 0 && (
+              <Button
+                onClick={() => {
+                  onClose();
+                  navigate("/tasks");
+                }}
+              >
+                ללוח המשימות
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onClose}>
+              סגירה
+            </Button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** One call: open it with a click; delete it from here, by typing "מחיקה" to confirm. */
 function CallCard({ call: c, onOpen, onDelete }: { call: CallTranscription; onOpen: () => void; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [typed, setTyped] = useState("");
+  const confirmed = typed.trim() === DELETE_WORD;
+  const cancel = () => {
+    setConfirming(false);
+    setTyped("");
+  };
   return (
     <div className="flex flex-col rounded-xl border border-line bg-white shadow-sm transition-colors hover:border-ink-300">
       <button onClick={onOpen} className="block w-full flex-1 px-4 pb-3 pt-4 text-right">
@@ -186,24 +469,35 @@ function CallCard({ call: c, onOpen, onDelete }: { call: CallTranscription; onOp
       {/* The footer: when and how long — or, after the trash, the question. */}
       <div className="flex min-h-11 items-center justify-between gap-2 border-t border-line px-4 py-1.5 text-xs">
         {confirming ? (
-          <>
-            <span className="font-semibold text-blocked">למחוק את השיחה וההקלטה?</span>
-            <span className="flex gap-1.5">
-              <button
-                disabled={deleting}
-                onClick={() => {
-                  setDeleting(true);
-                  void onDelete().finally(() => setDeleting(false));
-                }}
-                className="rounded-md bg-blocked px-2.5 py-1 font-semibold text-white disabled:opacity-60"
-              >
-                מחיקה
-              </button>
-              <button onClick={() => setConfirming(false)} className="rounded-md border border-line bg-white px-2.5 py-1 text-ink-900">
-                ביטול
-              </button>
-            </span>
-          </>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!confirmed || deleting) return;
+              setDeleting(true);
+              void onDelete().finally(() => setDeleting(false));
+            }}
+            className="flex w-full items-center gap-1.5 py-0.5"
+          >
+            <input
+              autoFocus
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && cancel()}
+              placeholder={`הקלידו "${DELETE_WORD}" למחיקה`}
+              aria-label={`הקלידו ${DELETE_WORD} כדי למחוק את השיחה וההקלטה`}
+              className="min-w-0 flex-1 rounded-md border border-[#f3d3d0] bg-white px-2 py-1 text-xs text-ink-900 outline-none placeholder:text-blocked/70 focus:border-blocked"
+            />
+            <button
+              type="submit"
+              disabled={!confirmed || deleting}
+              className="rounded-md bg-blocked px-2.5 py-1 font-semibold text-white disabled:opacity-40"
+            >
+              מחיקה
+            </button>
+            <button type="button" onClick={cancel} className="rounded-md border border-line bg-white px-2.5 py-1 text-ink-900">
+              ביטול
+            </button>
+          </form>
         ) : (
           <>
             <span className="flex items-center gap-3 text-muted">
@@ -227,7 +521,18 @@ function CallCard({ call: c, onOpen, onDelete }: { call: CallTranscription; onOp
 
 /* --- recording ------------------------------------------------------------ */
 
-function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscription) => void; onError: (e: string | null) => void }) {
+function Recorder({
+  onUploaded,
+  onError,
+  onStatus,
+  active,
+}: {
+  onUploaded: (call: CallTranscription) => void;
+  onError: (e: string | null) => void;
+  /** The recorder while it records or is paused; null otherwise. */
+  onStatus: (status: RecorderStatus | null) => void;
+  active: boolean;
+}) {
   const [client, setClient] = useState({ client_name: "", phone: "", id_number: "" });
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [mic, setMic] = useState(() => {
@@ -264,13 +569,19 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
     void loadMics();
   }, [loadMics]);
 
-  //: Closing the tab before the recording was sent would lose it.
+  //: Recording right now (or paused) — the console shows it on every page.
+  const [capturing, setCapturing] = useState(false);
   useEffect(() => {
-    if (!pending) return;
+    if (!active) setAsking(false);
+  }, [active]);
+
+  //: Closing the tab while recording, or before the recording was sent, would lose it.
+  useEffect(() => {
+    if (!pending && !capturing) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [pending]);
+  }, [pending, capturing]);
 
   const pickMic = (id: string) => {
     setMic(id);
@@ -350,6 +661,11 @@ function Recorder({ onUploaded, onError }: { onUploaded: (call: CallTranscriptio
             bitrate={BITRATE}
             deviceId={mic}
             onPermission={() => void loadMics()}
+            onStatus={(status) => {
+              const on = status.phase === "recording" || status.phase === "paused";
+              setCapturing(on);
+              onStatus(on ? status : null);
+            }}
             onRecordingComplete={(audio, ms) => {
               setPending({ audio, filename: `call-${new Date().toISOString().slice(0, 16)}.webm`, ms });
               onError(null);
@@ -443,15 +759,22 @@ function CallDetails({
   id,
   onClose,
   onChange,
+  offer,
+  onOffer,
 }: {
   id: string;
   onClose: () => void;
   onChange: (call: CallTranscription) => void;
+  /** Milo's task offer is shown, on the left — until it was answered. */
+  offer: boolean;
+  /** true: show the offer again; false: it was answered. */
+  onOffer: (on: boolean) => void;
 }) {
   const [call, setCall] = useState<CallTranscription | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [audio, setAudio] = useState<Blob | null>(null);
   const hasAudio = !!call?.audio_key;
+  const panel = offer && call?.status === "done" && followUps(call.summary).length > 0;
 
   const load = useCallback(async () => {
     try {
@@ -492,8 +815,9 @@ function CallDetails({
   }
 
   return (
-    <Modal onClose={onClose} size="lg">
-      <div className="space-y-5 p-5 sm:p-8">
+    <Modal onClose={onClose} size={panel ? "xl" : "lg"}>
+      <div className={panel ? "grid items-start gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_420px]" : "p-5 sm:p-8"}>
+        <div className="min-w-0 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-2xl font-semibold text-ink-900">{call?.client_name ?? "…"}</h2>
@@ -555,6 +879,13 @@ function CallDetails({
           </div>
         )}
 
+        {!panel && call?.status === "done" && followUps(call.summary).length > 0 && (
+          <Button variant="task" onClick={() => onOffer(true)}>
+            <LuListTodo className="h-4 w-4" />
+            פתיחת משימות מהשיחה
+          </Button>
+        )}
+
         <Section title="סיכום" copy={call?.summary && plainText(call.summary)}>
           {call?.summary ? (
             <Markdown text={call.summary} />
@@ -574,6 +905,14 @@ function CallDetails({
             <p className="text-sm text-muted">{call && working(call) ? "בתמלול…" : "אין תמלול."}</p>
           )}
         </Section>
+        </div>
+
+        {/* Milo's offer, on the call's left (RTL), staying in view while the call scrolls. */}
+        {panel && call && (
+          <div className="lg:sticky lg:top-0">
+            <TaskSuggestions key={call.id} call={call} onClose={() => onOffer(false)} />
+          </div>
+        )}
       </div>
     </Modal>
   );
