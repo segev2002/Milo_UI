@@ -32,7 +32,7 @@ export function MobileTabBar({
     { view: "more", label: "עוד", icon: <LuEllipsis className={ICON} /> },
   ];
   const n = tabs.length;
-  //: A screen with no tab of its own (users, activity, playbook) lights "עוד".
+  //: A screen with no tab of its own (agency, playbook) lights "עוד".
   const found = tabs.findIndex((t) => t.view === view);
   const active = found === -1 ? n - 1 : found;
 

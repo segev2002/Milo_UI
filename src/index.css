@@ -40,27 +40,101 @@
   --radius-2xl: 0.5rem;
 }
 
-/* The date picker (ui.tsx DateField), in the console's colours. */
+/* Every calendar in the console (ui.tsx DateField, DateRangeField): round days,
+   the chosen day a green circle, a range a light green band between two circles. */
 .milo-calendar .rdp-root {
-  --rdp-accent-color: var(--color-ink-900);
+  --rdp-accent-color: var(--color-ink-700);
   --rdp-accent-background-color: var(--color-ink-50);
   --rdp-today-color: var(--color-ink-700);
   --rdp-day-height: 2.375rem;
   --rdp-day-width: 2.375rem;
-  --rdp-day_button-height: 2.25rem;
-  --rdp-day_button-width: 2.25rem;
-  --rdp-day_button-border-radius: var(--radius-lg);
+  --rdp-day_button-height: 2.125rem;
+  --rdp-day_button-width: 2.125rem;
+  --rdp-day_button-border-radius: 9999px;
   --rdp-selected-border: 0;
+  --rdp-range_middle-background-color: var(--color-ink-100);
+  --rdp-range_middle-color: var(--color-ink-900);
+  --rdp-range_start-color: var(--color-champagne);
+  --rdp-range_end-color: var(--color-champagne);
+  --rdp-range_start-date-background-color: var(--color-ink-700);
+  --rdp-range_end-date-background-color: var(--color-ink-700);
   font-size: 0.875rem;
   color: var(--color-ink-900);
 }
-.milo-calendar .rdp-selected .rdp-day_button {
-  background-color: var(--color-ink-900);
+.milo-calendar .rdp-month_caption {
+  font-weight: 600;
+}
+.milo-calendar .rdp-weekday {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.milo-calendar .rdp-day_button {
+  transition: background-color 0.15s;
+}
+.milo-calendar .rdp-day:not(.rdp-selected) .rdp-day_button:hover {
+  background-color: var(--color-ink-50);
+}
+/* Today, green, whenever the calendar opens — until it is picked or inside a range. */
+.milo-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-700);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--color-ink-600);
+}
+/* One chosen day (not a range's middle). */
+.milo-calendar .rdp-selected:not(.rdp-range_middle) .rdp-day_button {
+  background-color: var(--color-ink-700);
   color: var(--color-champagne);
   font-weight: 600;
 }
+.milo-calendar .rdp-range_middle .rdp-day_button {
+  font-weight: 500;
+}
+/* The band rounds off where a week starts or ends. */
+.milo-calendar .rdp-range_middle:first-child {
+  border-start-start-radius: 9999px;
+  border-end-start-radius: 9999px;
+}
+.milo-calendar .rdp-range_middle:last-child {
+  border-start-end-radius: 9999px;
+  border-end-end-radius: 9999px;
+}
+.milo-calendar .rdp-outside {
+  opacity: 0.4;
+}
 .milo-calendar .rdp-chevron {
   fill: var(--color-ink-700);
+}
+
+/* ניהול הסוכנות: what is inside a card rises into it, one card after another, and
+   the bars grow from their start. Only the contents move (transform and opacity, on
+   the compositor): a moving glass card would re-blur the page behind it every frame. */
+@keyframes agency-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes agency-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.agency-panel > * {
+  animation: agency-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+.agency-grow {
+  transform-origin: right;
+  animation: agency-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-panel > *,
+  .agency-grow {
+    animation: none;
+  }
 }
 
 @layer base {

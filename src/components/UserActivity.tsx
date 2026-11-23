@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, listActivity, listUsers } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { AllowedUser, ConsoleActivity } from "../types";
-import { Card, DateField, Empty, Select, Tag } from "./ui";
+import { Card, DateRangeField, Empty, Select, Tag } from "./ui";
 
 /** Every action the server records (see the API's 0022 migration), grouped as the filter shows them. */
 const GROUPS: { label: string; tone: "ink" | "warm" | "milo" | "claim"; actions: Record<string, string> }[] = [
@@ -132,12 +132,17 @@ export function UserActivity() {
           </div>
         </label>
         <label className="flex items-center gap-3">
-          מתאריך
-          <DateField value={from} onChange={setFrom} className="w-48" />
-        </label>
-        <label className="flex items-center gap-3">
-          עד תאריך
-          <DateField value={to} onChange={setTo} className="w-48" />
+          תאריכים
+          <DateRangeField
+            start={from}
+            end={to}
+            onChange={(start, end) => {
+              setFrom(start);
+              setTo(end);
+            }}
+            placeholder="כל התאריכים"
+            className="w-72"
+          />
         </label>
       </div>
       {error && (

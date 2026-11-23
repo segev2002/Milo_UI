@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, ownerKeys, ownerUsage, setKeyExpiry } from "../lib/api";
 import type { ApiKeyExpiry, UsageMonth, UsageRow } from "../types";
-import { Button, Card, CardHead, Empty, Tag } from "./ui";
+import { Button, Card, CardHead, DateField, Empty, Tag } from "./ui";
 
 /** The monthly fee each agency pays, against which its cost is shown. */
 const FEE_ILS = 500;
@@ -163,13 +163,7 @@ export function Owner() {
               className="w-32 rounded-xl border border-line bg-paper px-3 py-2 text-sm"
               dir="ltr"
             />
-            <input
-              type="date"
-              value={editing.date}
-              onChange={(event) => setEditing({ ...editing, date: event.target.value })}
-              className="rounded-xl border border-line bg-paper px-3 py-2 text-sm"
-              dir="ltr"
-            />
+            <DateField value={editing.date} onChange={(date) => setEditing({ ...editing, date })} className="w-56" />
             <Button size="sm" onClick={() => void saveKey()} disabled={!editing.date}>
               שמירה
             </Button>
