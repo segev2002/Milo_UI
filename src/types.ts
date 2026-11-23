@@ -79,7 +79,7 @@ export interface SystemsState {
   /** False on dev for a real agency: its keys are shared with production. */
   can_write: boolean;
   systems: SystemStatus[];
-  google: { connected: boolean; drive: boolean; calendar: boolean; gmail: boolean; account?: string };
+  google: { connected: boolean; drive: boolean; calendar: boolean; gmail: boolean; gmail_read?: boolean; account?: string };
 }
 
 /** GET /auth/me, POST /auth/google — who the session cookie says this is. */

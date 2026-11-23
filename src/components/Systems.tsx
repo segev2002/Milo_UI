@@ -312,7 +312,7 @@ function KeysWindow({ system, onClose, onSaved }: { system: SystemStatus; onClos
 const GOOGLE_SERVICES: { key: "drive" | "calendar" | "gmail"; name: string; what: string; logo: ReactNode }[] = [
   { key: "drive", name: "Google Drive", what: "ניתוחי התיק שמילו יוצר", logo: <SiGoogledrive className="h-7 w-7 text-[#1a73e8]" /> },
   { key: "calendar", name: "יומן Google", what: "הפגישות של היום, זמנים פנויים וקביעת פגישות", logo: <SiGooglecalendar className="h-7 w-7 text-[#4285f4]" /> },
-  { key: "gmail", name: "Gmail", what: "שליחת מיילים בשם הסוכנות", logo: <SiGmail className="h-7 w-7 text-[#ea4335]" /> },
+  { key: "gmail", name: "Gmail", what: "שליחת מיילים בשם הסוכנות, ומיילים שלא נקראו בתדריך הבוקר", logo: <SiGmail className="h-7 w-7 text-[#ea4335]" /> },
 ];
 
 function GoogleWindow({ google, onClose }: { google: SystemsState["google"]; onClose: () => void }) {
@@ -357,11 +357,13 @@ function GoogleWindow({ google, onClose }: { google: SystemsState["google"]; onC
           </p>
         </div>
       ) : (
-        <p className="text-body">חשבון ה-Google של הסוכנות, באישור אחד. מילו לא קורא את תיבת המייל.</p>
+        <p className="text-body">חשבון ה-Google של הסוכנות, באישור אחד. מהמייל מילו קורא רק שולח, נושא ושורת פתיחה של מיילים שלא נקראו, לתדריך הבוקר.</p>
       )}
       <ul className="divide-y divide-line rounded-xl border border-line">
         {GOOGLE_SERVICES.map((service) => {
-          const on = google.connected && google[service.key];
+          // Gmail connected before the brief read mail: sending works, reading needs a reconnect.
+          const stale = service.key === "gmail" && google.connected && google.gmail && !google.gmail_read;
+          const on = google.connected && google[service.key] && !stale;
           return (
             <li key={service.key} className="flex items-center gap-3 px-4 py-3">
               <span className="shrink-0">{service.logo}</span>
@@ -369,7 +371,7 @@ function GoogleWindow({ google, onClose }: { google: SystemsState["google"]; onC
                 <span className="block font-semibold text-ink-900">{service.name}</span>
                 <span className="block text-sm text-muted">{service.what}</span>
               </span>
-              <Connected on={on}>{on ? "מחובר" : "לא מחובר"}</Connected>
+              <Connected on={on}>{on ? "מחובר" : stale ? "צריך חיבור מחדש" : "לא מחובר"}</Connected>
             </li>
           );
         })}
