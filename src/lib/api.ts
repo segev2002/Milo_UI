@@ -1,4 +1,6 @@
 import type {
+  AgencyPeriod,
+  AgencySummary,
   AllowedUser,
   ApiKeyExpiry,
   AuthConfig,
@@ -398,7 +400,27 @@ export async function listActivity(filter: { email?: string; since?: string; unt
   return request<ConsoleActivity[]>(`/agent/activity?${query}`);
 }
 
+/** "ניהול הסוכנות": the period holding `at` (YYYY-MM-DD; today when omitted), or for
+    "custom" the days `range` spans, and the period before. */
+export async function agencySummary(period: AgencyPeriod, at?: string, range?: { start: string; end: string }): Promise<AgencySummary> {
+  const query = new URLSearchParams({ period, ...(at && { at }), ...(period === "custom" && range) });
+  return request<AgencySummary>(`/agent/agency/summary?${query}`);
+}
+
 /* --- מכירות (admins only) -------------------------------------------------- */
+
+/** The status column's choices, in order. Adding or removing one returns the new list. */
+export async function listSaleStatuses(): Promise<string[]> {
+  return request<string[]>("/agent/sales/statuses");
+}
+
+export async function addSaleStatus(name: string): Promise<string[]> {
+  return request<string[]>("/agent/sales/statuses", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export async function removeSaleStatus(name: string): Promise<string[]> {
+  return request<string[]>(`/agent/sales/statuses/${encodeURIComponent(name)}`, { method: "DELETE" });
+}
 
 const SALES = "/agent/sales";
 const id = encodeURIComponent;

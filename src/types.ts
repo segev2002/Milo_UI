@@ -388,6 +388,46 @@ export interface ConsoleActivity {
   request?: Record<string, unknown> | null;
 }
 
+/* --- ניהול הסוכנות --------------------------------------------------------- */
+
+export type AgencyPeriod = "week" | "month" | "quarter" | "year" | "custom";
+
+/** A period's totals. Sales: status "פוליסה", by sale date, amounts as written (monthly premium). */
+export interface AgencyTotals {
+  premium: number;
+  /** Savings + pension + gemel moved in. */
+  transfers: number;
+  policies: number;
+  tasks_done: number;
+  /** Opened by Milo: from WhatsApp, or a call's follow-up. */
+  tasks_by_milo: number;
+  chats: number;
+}
+
+/** GET /agent/agency/summary (admins only). Dates are YYYY-MM-DD, both inclusive. */
+export interface AgencySummary {
+  period: { kind: AgencyPeriod; from: string; to: string };
+  previous: { from: string; to: string };
+  totals: AgencyTotals;
+  previous_totals: AgencyTotals;
+  /** The 12 months ending with the period's, each next to the same month a year earlier. */
+  monthly: { month: string; premium: number; premium_last_year: number }[];
+  /** The period's premium and policies per insurer, the largest first. */
+  insurers: { insurer: string; premium: number; policies: number }[];
+  /** Everyone who did something in the period, most active first. */
+  people: {
+    email: string;
+    name: string;
+    tasks_done: number;
+    tasks_created: number;
+    sale_rows: number;
+    chats: number;
+    actions: number;
+    /** The tasks they closed in the period, latest first. */
+    done: { id: string; title: string | null; client: string | null; resolved_at: string; by_milo: boolean }[];
+  }[];
+}
+
 /* --- מכירות --------------------------------------------------------------- */
 
 /** One tab of the sales log, usually a month — GET /agent/sales/sheets. */

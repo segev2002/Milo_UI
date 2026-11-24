@@ -34,13 +34,16 @@ import {
 import {
   ApiError,
   addSale,
+  addSaleStatus,
   createCampaign,
   createSalesSheet,
   deleteSale,
   deleteSalesSheet,
   getSalesSheet,
   listCampaigns,
+  listSaleStatuses,
   listSalesSheets,
+  removeSaleStatus,
   renameSalesSheet,
   updateCampaign,
   updateSale,
@@ -51,7 +54,7 @@ import { useCached } from "../lib/cache";
 import type { Campaign, CampaignCategory, SaleRow, SalesSheet, SalesSheetRows, SheetColumn, SheetStat } from "../types";
 import "../sheet.css";
 import { Modal } from "./Tasks";
-import { Button, Card, CardHead, confirmDialog, DateField, Empty, FIELD, InsurerName, Select, Tag } from "./ui";
+import { Button, Card, CardHead, confirmDialog, DateRangeField, Empty, FIELD, InsurerName, Select, Tag } from "./ui";
 
 export const CATEGORY_LABEL: Record<CampaignCategory, string> = {
   premium: "פרמיה",
@@ -348,14 +351,16 @@ function CampaignForm({
             />
           )}
         </Labelled>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Labelled label="מתאריך">
-            <DateField value={start} onChange={setStart} />
-          </Labelled>
-          <Labelled label="עד תאריך">
-            <DateField value={end} onChange={setEnd} />
-          </Labelled>
-        </div>
+        <Labelled label="תאריכי המבצע">
+          <DateRangeField
+            start={start}
+            end={end}
+            onChange={(from, to) => {
+              setStart(from);
+              setEnd(to);
+            }}
+          />
+        </Labelled>
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">
             קטגוריות ויעדים
@@ -519,8 +524,11 @@ const rem = (px: number) => `${px / 16}rem`;
 
 /** How small the sheet may be drawn, so more of it fits on a laptop screen. */
 const ZOOMS = [1, 0.9, 0.8, 0.7];
-/** The statuses the status column offers. A row with another (older) one keeps it as an option. */
+/** The status column's choices until the saved list arrives (the API's sale_statuses).
+    A row with another (older or removed) one keeps it as an option. */
 const STATUSES = ["פוליסה", "הצעה", "מינוי סוכן", "טרם נשלח", "הפקדה"];
+/** Campaigns and ניהול הסוכנות count it: it cannot be removed. */
+const POLICY = "פוליסה";
 
 /** One number of the tab's summary. */
 function Stat({ label, value, money }: { label: string; value: string; money?: boolean }) {
@@ -669,6 +677,8 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
   const [insurer, setInsurer] = useCached("sales.insurer", "");
   //: "" is every status; NO_STATUS the rows with none.
   const [status, setStatus] = useCached("sales.status", "");
+  //: The status column's choices.
+  const [statusList, setStatusList] = useCached<string[]>("sales.statuses", STATUSES);
   //: A client's name or ID number.
   const [query, setQuery] = useState("");
   //: The cell the paint applies to — the last one clicked, kept after it loses focus.
@@ -699,6 +709,30 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
     return () => observer.disconnect();
   });
   useEffect(() => slide(table.current, rail.current, zoom), [zoom]);
+  useEffect(() => {
+    listSaleStatuses()
+      .then(setStatusList)
+      .catch(() => {});
+  }, []);
+
+  async function addStatus(name: string) {
+    try {
+      setStatusList(await addSaleStatus(name));
+      onError(null);
+    } catch (exc) {
+      onError(exc instanceof ApiError ? exc.message : "לא הצלחתי להוסיף את הסטטוס.");
+    }
+  }
+
+  async function removeStatus(name: string) {
+    if (!(await confirmDialog({ title: `להסיר את הסטטוס ״${name}״?`, confirmLabel: "הסרה", danger: true }))) return;
+    try {
+      setStatusList(await removeSaleStatus(name));
+      onError(null);
+    } catch (exc) {
+      onError(exc instanceof ApiError ? exc.message : "לא הצלחתי להסיר את הסטטוס.");
+    }
+  }
 
   /** A trackpad's sideways swipe over the sheet moves it, as on any scrolling box. */
   function swipe(event: ReactWheelEvent) {
@@ -930,7 +964,7 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
 
   /** Enter and the arrows move to the cell above or below on screen — with a
       filter on, that is not always the next row of the sheet. */
-  function move(event: KeyboardEvent<HTMLInputElement>, r: number, c: number) {
+  function move(event: KeyboardEvent<HTMLElement>, r: number, c: number) {
     const step = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" || event.key === "Enter" ? 1 : 0;
     if (!step) return;
     event.preventDefault();
@@ -1160,36 +1194,28 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
                         const pick = () => setSelected({ r, key: c.id });
                         if (c.kind === "choice")
                           return (
-                            <td key={c.id} {...look} className={`${look.className} relative`}>
-                              <select
-                                key={`${sale?.id ?? "new"}:${value}`}
-                                data-cell={`${r}:${ci}`}
-                                defaultValue={value}
+                            <td key={c.id} {...look}>
+                              <CellMenu
+                                cell={`${r}:${ci}`}
+                                label={c.label}
+                                value={value}
+                                options={[...statusList, ...(value && !statusList.includes(value) ? [value] : [])]}
                                 onFocus={pick}
-                                onChange={(e) => void save(r, c, e.target.value)}
-                                className="sheet-cell sheet-select"
-                                aria-label={c.label}
-                              >
-                                <option value="" />
-                                {[...STATUSES, ...(value && !STATUSES.includes(value) ? [value] : [])].map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
-                                ))}
-                              </select>
-                              <LuChevronDown
-                                aria-hidden
-                                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-70"
+                                onSave={(text) => void save(r, c, text)}
+                                onKeyDown={(e) => move(e, r, ci)}
+                                manage={{ add: addStatus, remove: removeStatus, keep: POLICY }}
                               />
                             </td>
                           );
                         if (c.kind === "insurer")
                           return (
                             <td key={c.id} {...look}>
-                              <InsurerCell
-                                key={`${sale?.id ?? "new"}:${value}`}
+                              <CellMenu
                                 cell={`${r}:${ci}`}
+                                label={c.label}
                                 value={value}
+                                options={INSURER_NAMES}
+                                typed
                                 onFocus={pick}
                                 onSave={(text) => void save(r, c, text)}
                                 onKeyDown={(e) => move(e, r, ci)}
@@ -1222,11 +1248,6 @@ function SalesSheetView({ onError, onChange }: { onError: (e: string | null) => 
             </tbody>
           </table>
           {sheet && q && shown.length === 1 && <p className="px-1 py-3 text-sm text-muted">לא נמצא לקוח בשם או בת.ז "{query.trim()}"</p>}
-          <datalist id="sheet-insurers">
-            {INSURER_NAMES.map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
         </div>
       )}
       {/* The sheet's sideways scrollbar, pinned to the bottom of the screen so it is in
@@ -1762,55 +1783,163 @@ function PaintBar({ enabled, onPaint }: { enabled: boolean; onPaint: (color: str
 }
 
 /**
- * The company column: the insurer's logo when it is one we know, the name
- * otherwise. Clicking (or arriving by keyboard) turns it back into text to
- * edit; once a known name is typed and the cell left, its logo takes its place.
+ * A dropdown cell — the status column, and the company column — in the console's
+ * one dropdown look. The cell shows the value (a company we know, as its logo);
+ * the list opens under it. `typed`: any text may be written in (a company that
+ * is not on the list). `manage`: the list itself can be added to and removed
+ * from, except `keep`.
  */
-function InsurerCell({
+function CellMenu({
   cell,
+  label,
   value,
+  options,
+  typed,
+  manage,
   onSave,
   onKeyDown,
   onFocus,
 }: {
   cell: string;
+  label: string;
   value: string;
+  options: string[];
+  typed?: boolean;
+  manage?: { add: (name: string) => Promise<void>; remove: (name: string) => Promise<void>; keep: string };
   onSave: (text: string) => void;
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   onFocus: () => void;
 }) {
-  const logo = insurerLogo(value);
-  const [editing, setEditing] = useState(!logo);
-  if (!editing && logo)
-    return (
-      <button
-        data-cell={cell}
-        onFocus={() => {
-          onFocus();
-          setEditing(true);
-        }}
-        onClick={() => setEditing(true)}
-        title={value}
-        className="sheet-cell flex items-center justify-center"
-      >
-        <img src={logo} alt={value} className="h-5 w-auto max-w-full object-contain" />
-      </button>
-    );
+  const [text, setText] = useState("");
+  const logo = typed ? insurerLogo(value) : null;
+  const query = text.trim();
+  const shown = typed && query ? options.filter((o) => o.includes(query)) : options;
+  const choose = (next: string, close: () => void) => {
+    if (next !== value) onSave(next);
+    setText("");
+    close();
+  };
+
   return (
-    <input
-      data-cell={cell}
-      autoFocus={!!logo}
-      defaultValue={value}
-      list="sheet-insurers"
-      onFocus={onFocus}
-      onBlur={(e) => {
-        const text = e.target.value.trim();
-        if (text !== value) onSave(text);
-        else if (logo) setEditing(false);
-      }}
-      onKeyDown={onKeyDown}
-      className="sheet-cell"
-    />
+    <Popover className="relative h-full">
+      <PopoverButton
+        data-cell={cell}
+        aria-label={label}
+        onFocus={onFocus}
+        onKeyDown={(e) => (e.key === "ArrowUp" || e.key === "ArrowDown") && onKeyDown(e)}
+        className="sheet-cell cursor-pointer text-right"
+      >
+        {/* .sheet-cell is display:block; the row inside lays the value and the chevron out. */}
+        <span className="flex h-full items-center justify-between gap-1">
+          {logo ? (
+            <img src={logo} alt={value} title={value} className="mx-auto h-5 w-auto min-w-0 max-w-full object-contain" />
+          ) : (
+            <span className="truncate">{value}</span>
+          )}
+          <LuChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-60" />
+        </span>
+      </PopoverButton>
+      <PopoverPanel
+        anchor="bottom start"
+        className="z-[60] mt-1 w-60 rounded-xl border border-line bg-white p-1 text-sm shadow-lg outline-none"
+      >
+        {({ close }) => (
+          <div>
+            {typed && (
+              <input
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && query) choose(shown.length === 1 ? shown[0] : query, close);
+                }}
+                placeholder="חיפוש או שם אחר"
+                className="mb-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink-900 outline-none focus:border-ink-300"
+              />
+            )}
+            <ul className="max-h-64 overflow-y-auto">
+              {shown.map((o) => (
+                <li key={o} className="group flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => choose(o, close)}
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-right text-ink-900 transition-colors hover:bg-ink-50 ${
+                      o === value ? "font-semibold" : ""
+                    }`}
+                  >
+                    <LuCheck className={`h-4 w-4 shrink-0 text-ink-700 ${o === value ? "" : "opacity-0"}`} />
+                    <span className="truncate">{o}</span>
+                    {typed && insurerLogo(o) && (
+                      <img src={insurerLogo(o)!} alt="" className="mr-auto h-4 w-auto max-w-[4.5rem] object-contain" />
+                    )}
+                  </button>
+                  {manage && o !== manage.keep && options.includes(o) && (
+                    <button
+                      type="button"
+                      aria-label={`הסרת ${o}`}
+                      title="הסרה מהרשימה"
+                      onClick={() => void manage.remove(o)}
+                      className="rounded-md p-1.5 text-muted opacity-0 transition hover:bg-claim/10 hover:text-claim focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <LuX className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </li>
+              ))}
+              {typed && query && !options.includes(query) && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => choose(query, close)}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-ink-900 hover:bg-ink-50"
+                  >
+                    <LuPlus className="h-4 w-4 shrink-0 text-ink-700" />
+                    {query}
+                  </button>
+                </li>
+              )}
+            </ul>
+            {value && (
+              <button
+                type="button"
+                onClick={() => choose("", close)}
+                className="mt-1 w-full rounded-lg border-t border-line px-3 py-2 text-right text-xs text-muted hover:bg-ink-50 hover:text-ink-900"
+              >
+                ניקוי התא
+              </button>
+            )}
+            {manage && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!query) return;
+                  void manage.add(query);
+                  setText("");
+                }}
+                className="mt-1 flex items-center gap-1 border-t border-line pt-1"
+              >
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  maxLength={40}
+                  placeholder="סטטוס חדש"
+                  aria-label="סטטוס חדש"
+                  className="min-w-0 flex-1 rounded-lg bg-paper px-3 py-2 text-sm text-ink-900 outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={!query}
+                  aria-label="הוספת סטטוס"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink-900 text-champagne disabled:opacity-40"
+                >
+                  <LuPlus className="h-4 w-4" />
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+      </PopoverPanel>
+    </Popover>
   );
 }
 

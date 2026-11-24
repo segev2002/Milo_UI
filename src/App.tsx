@@ -6,6 +6,7 @@ import { getSystems, health as fetchHealth, listTasks, logout, me as fetchMe, se
 import { useMilo } from "./hooks/useMilo";
 import { clearCache } from "./lib/cache";
 import type { Health, Identity, Task, TurnRequest } from "./types";
+import { Agency } from "./components/Agency";
 import { Calls } from "./components/Calls";
 import { Chat } from "./components/Chat";
 import { Intro } from "./components/Intro";
@@ -16,10 +17,8 @@ import { Playbook } from "./components/Playbook";
 import { Sales } from "./components/Sales";
 import { Sidebar } from "./components/Sidebar";
 import { Tasks } from "./components/Tasks";
-import { UserActivity } from "./components/UserActivity";
 import { Owner } from "./components/Owner";
 import { Systems } from "./components/Systems";
-import { Users } from "./components/Users";
 import { DevBanner, LoadingBar, openGoogle, OverflowTip } from "./components/ui";
 import { THEMES, ThemeSwitcher, type Theme } from "./components/ThemeSwitcher";
 import type { View } from "./components/Sidebar";
@@ -29,8 +28,7 @@ const TITLES: Record<View, { title: string }> = {
   playbook: { title: "מה הוא יודע לעשות" },
   tasks: { title: "משימות" },
   calls: { title: "תמלול שיחות" },
-  users: { title: "ניהול משתמשים" },
-  activity: { title: "מעקב משתמשים" },
+  agency: { title: "ניהול הסוכנות" },
   owner: { title: "עלויות ומפתחות" },
   systems: { title: "חיבורים" },
   sales: { title: "מכירות" },
@@ -315,8 +313,7 @@ export default function App() {
             <Route path="/tasks" element={<Tasks me={me} />} />
             {/* Rendered below, always: a recording goes on while the user works elsewhere. */}
             <Route path="/calls" element={null} />
-            <Route path="/users" element={me.is_admin ? <Users me={me} /> : <Navigate to="/tasks" replace />} />
-            <Route path="/activity" element={me.is_admin ? <UserActivity /> : <Navigate to="/tasks" replace />} />
+            <Route path="/agency" element={me.is_admin ? <Agency me={me} /> : <Navigate to="/tasks" replace />} />
             <Route path="/owner" element={me.is_owner ? <Owner /> : <Navigate to="/tasks" replace />} />
             <Route
               path="/systems"

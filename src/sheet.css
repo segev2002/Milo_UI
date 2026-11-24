@@ -194,18 +194,6 @@ html[data-theme] .milo-sheet {
   box-shadow: inset 0 0 0 2px var(--color-ink-500);
 }
 
-/* The status column: a dropdown that looks like the other cells. The browser's
-   arrow is hidden; the cell draws a chevron icon instead. */
-.milo-sheet .sheet-select {
-  appearance: none;
-  cursor: pointer;
-  padding-left: 26px;
-}
-.milo-sheet .sheet-select option {
-  color: var(--color-body);
-  background: var(--glass-dialog, #ffffff);
-  font-weight: 600;
-}
 
 /* The page is the one scroll (down). The sheet's box only clips it sideways (a box
    that scrolls would stop the titles sticking to the page); the scrollbar pinned to the

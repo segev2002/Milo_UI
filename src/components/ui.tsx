@@ -316,6 +316,106 @@ function isoDay(day: Date): string {
   return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
 }
 
+/** "17 בנוב׳ 2026 – 23 בנוב׳ 2026" — or one day when both ends are the same. */
+export function rangeLabel(start: string, end: string): string {
+  const show = (text: string) =>
+    new Date(`${text}T00:00`).toLocaleDateString("he-IL", { day: "numeric", month: "short", year: "numeric" });
+  return start === end ? show(start) : `${show(start)} – ${show(end)}`;
+}
+
+/**
+ * Two dates — from and to — picked in one calendar: the first click is the start,
+ * the second the end, the days between a green band. Values are "YYYY-MM-DD" ("" =
+ * not set). `icon` shows only a calendar button (the range is shown elsewhere).
+ */
+export function DateRangeField({
+  start,
+  end,
+  onChange,
+  icon,
+  placeholder = "בחירת תאריכים",
+  className = "",
+}: {
+  start: string;
+  end: string;
+  onChange: (start: string, end: string) => void;
+  icon?: boolean;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <Popover className={`relative ${className}`}>
+      {icon ? (
+        <PopoverButton
+          aria-label={placeholder}
+          title={placeholder}
+          className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white text-ink-900 transition-colors hover:bg-paper data-[open]:bg-ink-900 data-[open]:text-champagne"
+        >
+          <LuCalendarDays className="h-[1.125rem] w-[1.125rem]" />
+        </PopoverButton>
+      ) : (
+        <PopoverButton className={`${FIELD} flex items-center justify-between gap-2 text-right ${start ? "" : "text-muted"}`}>
+          <span className="truncate">{start && end ? rangeLabel(start, end) : placeholder}</span>
+          <LuCalendarDays className="h-4 w-4 shrink-0 text-muted" />
+        </PopoverButton>
+      )}
+      <PopoverPanel
+        anchor="bottom start"
+        className="milo-calendar z-[60] mt-1 rounded-2xl border border-line bg-white p-3 shadow-lg outline-none"
+      >
+        {({ close }) => <RangeCalendar start={start} end={end} onChange={(a, b) => (onChange(a, b), close())} />}
+      </PopoverPanel>
+    </Popover>
+  );
+}
+
+function RangeCalendar({ start, end, onChange }: { start: string; end: string; onChange: (start: string, end: string) => void }) {
+  const day = (text: string) => (text ? new Date(`${text}T00:00`) : undefined);
+  const [range, setRange] = useState<{ from: Date | undefined; to?: Date } | undefined>(
+    start ? { from: day(start), to: day(end || start) } : undefined,
+  );
+  return (
+    <div className="space-y-3">
+      <DayPicker
+        mode="range"
+        dir="rtl"
+        locale={he}
+        resetOnSelect
+        selected={range}
+        defaultMonth={range?.to ?? range?.from}
+        onSelect={setRange}
+      />
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+        <p className="text-xs font-medium text-ink-900">
+          {range?.from && rangeLabel(isoDay(range.from), isoDay(range.to ?? range.from))}
+        </p>
+        <div className="flex items-center gap-3">
+          {(start || range) && (
+            <button
+              type="button"
+              onClick={() => {
+                setRange(undefined);
+                onChange("", "");
+              }}
+              className="text-xs text-muted underline underline-offset-2 hover:text-ink-900"
+            >
+              ניקוי
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!range?.from}
+            onClick={() => range?.from && onChange(isoDay(range.from), isoDay(range.to ?? range.from))}
+            className="rounded-full bg-ink-900 px-4 py-1.5 text-xs font-medium text-champagne transition hover:bg-ink-800 disabled:opacity-40"
+          >
+            אישור
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Gmail or Google Calendar in a small window over the console, centred — Google
  * cannot be shown inside the page. `authuser` opens the account the user signed in

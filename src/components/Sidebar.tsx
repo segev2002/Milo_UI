@@ -2,20 +2,19 @@ import type { ReactNode } from "react";
 import type { Health, Identity } from "../types";
 import { MiloNotifications } from "./Notifications";
 import {
-  LuActivity,
   LuBookOpen,
   LuBotMessageSquare,
+  LuBuilding2,
   LuChartColumn,
   LuClipboardList,
   LuLogOut,
   LuMic,
   LuPlug,
-  LuUsers,
   LuWallet,
   LuX,
 } from "react-icons/lu";
 
-export type View = "activity" | "calls" | "chat" | "owner" | "playbook" | "sales" | "systems" | "tasks" | "users";
+export type View = "agency" | "calls" | "chat" | "owner" | "playbook" | "sales" | "systems" | "tasks";
 
 const ICON = "h-[1.125rem] w-[1.125rem]";
 
@@ -28,8 +27,7 @@ const NAV: { view: View; label: string; icon: ReactNode; admin?: boolean; owner?
   { view: "calls", label: "תמלול שיחות", icon: <LuMic className={ICON} /> },
   { view: "chat", label: "שאל את מילו", icon: <LuBotMessageSquare className={ICON} /> },
   { view: "playbook", label: "מה הוא יודע לעשות", icon: <LuBookOpen className={ICON} /> },
-  { view: "users", label: "ניהול משתמשים", icon: <LuUsers className={ICON} />, admin: true },
-  { view: "activity", label: "מעקב משתמשים", icon: <LuActivity className={ICON} />, admin: true },
+  { view: "agency", label: "ניהול הסוכנות", icon: <LuBuilding2 className={ICON} />, admin: true },
   { view: "systems", label: "חיבורים", icon: <LuPlug className={ICON} />, admin: true },
   // Milo's owner only: every agency's cost and keys.
   { view: "owner", label: "עלויות ומפתחות", icon: <LuWallet className={ICON} />, owner: true },
