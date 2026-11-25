@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { animate, useReducedMotion } from "motion/react";
 import {
   LuActivity,
@@ -15,10 +15,11 @@ import {
   LuX,
 } from "react-icons/lu";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { agencySummary, ApiError } from "../lib/api";
+import { agencySummary, ApiError, listPeople, listTasks } from "../lib/api";
 import { useCached } from "../lib/cache";
 import { insurerLogo } from "../lib/insurers";
-import type { AgencyPeriod, AgencySummary, Identity } from "../types";
+import type { AgencyPeriod, AgencySummary, Identity, Person as TaskPerson, Task } from "../types";
+import { TaskDetails } from "./TaskDetails";
 import { Modal } from "./Tasks";
 import { Card, DateRangeField, Empty, Select } from "./ui";
 import { UserActivity } from "./UserActivity";
@@ -50,7 +51,7 @@ export function Agency({ me }: { me: Identity }) {
     />
   );
   // The overview puts the tabs in its own toolbar row, so it all fits on the first screen.
-  if (tab === "overview") return <Overview tabs={tabs} />;
+  if (tab === "overview") return <Overview tabs={tabs} me={me} />;
   return (
     <div className="space-y-5">
       {tabs}
@@ -136,7 +137,7 @@ function monthName(month: string, long = false): string {
 
 /* --- סקירה ---------------------------------------------------------------- */
 
-function Overview({ tabs }: { tabs: ReactNode }) {
+function Overview({ tabs, me }: { tabs: ReactNode; me: Identity }) {
   const [period, setPeriod] = useCached<AgencyPeriod>("agency.period", "month");
   //: Any day in the period shown; "" is today.
   const [at, setAt] = useCached("agency.at", "");
@@ -260,12 +261,18 @@ function Overview({ tabs }: { tabs: ReactNode }) {
       ) : (
         <div ref={report} className="space-y-3" aria-busy={stale}>
           <PrintHeader name={name} />
-          <Headline s={summary} loadedAt={loadedAt} />
-          <div className="grid gap-3 @2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-            <Trend s={summary} />
+          {/* The whole overview on one screen from tablet width up, at any height (a laptop or
+              a TV): the premium, the trend (it takes what height is left) and its two numbers on
+              one side; the companies the full height on the other. Narrower: one column. */}
+          <div className="agency-overview grid gap-3 @2xl:h-[calc(100dvh-14.5rem)] @2xl:min-h-[30rem] @2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+              <Headline s={summary} loadedAt={loadedAt} />
+              <Trend s={summary} />
+              <Metrics s={summary} />
+            </div>
             <Insurers s={summary} />
           </div>
-          <Team s={summary} name={name} />
+          <Team s={summary} name={name} me={me} />
         </div>
       )}
     </div>
@@ -305,11 +312,9 @@ function Headline({ s, loadedAt }: { s: AgencySummary; loadedAt: Date | null }) 
   const before = s.previous_totals;
   const versus = previousName(s);
   const average = t.policies ? t.premium / t.policies : 0;
-  const people = s.people.filter((p) => p.actions || p.tasks_done).length;
 
   return (
-    <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-[minmax(0,2.1fr)_repeat(4,minmax(0,1fr))]">
-      <Panel delay={0} className="col-span-2 flex flex-col justify-between gap-2 px-4 py-3 @2xl:col-span-1">
+    <Panel delay={0} className="flex flex-col justify-between gap-2 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 truncate text-sm font-medium text-muted">פרמיה חודשית שנמכרה</p>
           {loadedAt && <MiloMark at={loadedAt} />}
@@ -325,21 +330,19 @@ function Headline({ s, loadedAt }: { s: AgencySummary; loadedAt: Date | null }) 
           <Stream label="ממוצע לפוליסה" value={t.policies ? ils(average) : "—"} />
           <Stream label="חברה מובילה" value={s.insurers[0]?.insurer ?? "—"} />
         </dl>
-      </Panel>
+    </Panel>
+  );
+}
 
-      <>
-        <Metric delay={80} hero title="משימות שנסגרו" value={t.tasks_done} now={t.tasks_done} before={before.tasks_done} versus={versus} />
-        <Metric delay={140} title="ניוד וחיסכון" value={t.transfers} format={ilsShort} now={t.transfers} before={before.transfers} versus={versus} />
-        <Metric
-          delay={200}
-          title="משימות שמילו פתח"
-          value={t.tasks_by_milo}
-          now={t.tasks_by_milo}
-          before={before.tasks_by_milo}
-          versus={versus}
-        />
-        <Metric delay={260} title="עובדים פעילים" value={people} note={`${count(t.chats)} שאלות למילו`} />
-      </>
+/** Under the trend: tasks closed, and transfers and savings. */
+function Metrics({ s }: { s: AgencySummary }) {
+  const t = s.totals;
+  const before = s.previous_totals;
+  const versus = previousName(s);
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Metric delay={80} hero title="משימות שנסגרו" value={t.tasks_done} now={t.tasks_done} before={before.tasks_done} versus={versus} />
+      <Metric delay={140} title="ניוד וחיסכון" value={t.transfers} format={ilsShort} now={t.transfers} before={before.transfers} versus={versus} />
     </div>
   );
 }
@@ -437,7 +440,7 @@ function Trend({ s }: { s: AgencySummary }) {
   const data = s.monthly;
   const lastYear = data.reduce((sum, m) => sum + m.premium_last_year, 0);
   return (
-    <Panel delay={320} className="p-4">
+    <Panel delay={320} outer="@2xl:min-h-0 @2xl:flex-1" className="flex flex-col p-4">
       <PanelHead
         title="מגמת מכירות"
         right={
@@ -447,7 +450,7 @@ function Trend({ s }: { s: AgencySummary }) {
           </div>
         }
       />
-      <div className="h-[196px]" dir="ltr">
+      <div className="agency-chart h-[196px] @2xl:h-auto @2xl:min-h-[120px] @2xl:flex-1" dir="ltr">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
             <defs>
@@ -537,10 +540,11 @@ const SLICES = [
 
 function Insurers({ s }: { s: AgencySummary }) {
   const [active, setActive] = useState<number | null>(null);
-  // Four largest, the rest as one — so the list is as tall as the chart beside it.
+  // Largest first (the leading company on top of the list), four of them, the rest as one.
   const slices = useMemo(() => {
-    const top = s.insurers.slice(0, 4);
-    const rest = s.insurers.slice(4);
+    const sorted = [...s.insurers].sort((a, b) => b.premium - a.premium);
+    const top = sorted.slice(0, 4);
+    const rest = sorted.slice(4);
     return rest.length
       ? [
           ...top,
@@ -556,13 +560,14 @@ function Insurers({ s }: { s: AgencySummary }) {
   const shown = active === null ? null : slices[active];
 
   return (
-    <Panel delay={380} className="p-4">
+    <Panel delay={380} outer="@2xl:min-h-0" className="flex flex-col p-4">
       <PanelHead title="לפי חברת ביטוח" />
       {!total ? (
         <Empty title="אין מכירות בתקופה הזו" />
       ) : (
-        <div className="flex items-center gap-4">
-          <div className="relative h-[150px] w-[150px] shrink-0">
+        // Upright: the chart large on top, the companies listed under it.
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-4">
+          <div className="agency-pie relative aspect-square w-full max-w-[300px] shrink-0 @2xl:aspect-auto @2xl:min-h-[140px] @2xl:max-w-none @2xl:flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -593,11 +598,11 @@ function Insurers({ s }: { s: AgencySummary }) {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <p className="text-base font-bold leading-tight text-ink-900 tabular-nums">{ils(shown?.premium ?? total)}</p>
-              <p className="mt-0.5 max-w-[6.5rem] truncate text-[0.7rem] text-muted">{shown?.insurer ?? "סה״כ"}</p>
+              <p className="text-xl font-bold leading-tight text-ink-900 tabular-nums">{ils(shown?.premium ?? total)}</p>
+              <p className="mt-0.5 max-w-[9rem] truncate text-xs text-muted">{shown?.insurer ?? "סה״כ"}</p>
             </div>
           </div>
-          <ul className="grid min-w-0 flex-1 gap-0.5">
+          <ul className="grid w-full min-w-0 gap-0.5">
             {slices.map((slice, i) => {
               const share = Math.round((slice.premium / total) * 100);
               const logo = insurerLogo(slice.insurer);
@@ -651,7 +656,7 @@ const COLUMNS: { key: Column; label: string; dot: string }[] = [
   { key: "actions", label: "סה״כ פעולות", dot: "bg-muted" },
 ];
 
-function Team({ s, name }: { s: AgencySummary; name: string }) {
+function Team({ s, name, me }: { s: AgencySummary; name: string; me: Identity }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Column>("tasks_done");
   const [open, setOpen] = useState<Person | null>(null);
@@ -759,7 +764,7 @@ function Team({ s, name }: { s: AgencySummary; name: string }) {
           {rows.length === 0 && <p className="px-3 py-4 text-xs text-muted">אין עובד בשם הזה.</p>}
         </div>
       )}
-      {open && <Finished person={open} period={name} winner={open.email === winner} onClose={() => setOpen(null)} />}
+      {open && <Finished person={open} period={name} winner={open.email === winner} me={me} onClose={() => setOpen(null)} />}
     </Panel>
   );
 }
@@ -768,8 +773,35 @@ function Team({ s, name }: { s: AgencySummary; name: string }) {
 const ON_BOARD_DAYS = 14;
 
 /** The tasks one person closed in the period. */
-function Finished({ person, period, winner, onClose }: { person: Person; period: string; winner: boolean; onClose: () => void }) {
-  const navigate = useNavigate();
+function Finished({
+  person,
+  period,
+  winner,
+  me,
+  onClose,
+}: {
+  person: Person;
+  period: string;
+  winner: boolean;
+  me: Identity;
+  onClose: () => void;
+}) {
+  //: A task opened from the list, over this page — closing it comes back here, not to the board.
+  const [task, setTask] = useState<Task | null>(null);
+  const [people, setPeople] = useState<TaskPerson[]>([]);
+  const [failed, setFailed] = useState<string | null>(null);
+  async function openTask(id: string) {
+    setFailed(null);
+    try {
+      const [tasks, list] = await Promise.all([listTasks(), people.length ? Promise.resolve(people) : listPeople()]);
+      setPeople(list);
+      const found = tasks.find((t) => t.id === id);
+      if (found) setTask(found);
+      else setFailed("המשימה כבר לא על הלוח.");
+    } catch (exc) {
+      setFailed(exc instanceof ApiError ? exc.message : "לא הצלחתי לפתוח את המשימה.");
+    }
+  }
   const onBoard = (at: string) => Date.now() - new Date(at).getTime() < ON_BOARD_DAYS * 86_400_000;
   return (
     <Modal onClose={onClose}>
@@ -805,7 +837,7 @@ function Finished({ person, period, winner, onClose }: { person: Person; period:
                   <button
                     type="button"
                     disabled={!openable}
-                    onClick={() => navigate(`/tasks?task=${encodeURIComponent(t.id)}`)}
+                    onClick={() => void openTask(t.id)}
                     className="flex w-full items-center gap-3 rounded-xl border border-line bg-paper/60 px-3.5 py-3 text-right transition-colors enabled:hover:bg-ink-50 disabled:cursor-default"
                   >
                     <span className="h-8 w-1 shrink-0 rounded-full bg-ink-600" />
@@ -824,7 +856,18 @@ function Finished({ person, period, winner, onClose }: { person: Person; period:
             })}
           </ul>
         )}
+        {failed && <p className="mt-3 text-sm text-blocked">{failed}</p>}
       </div>
+      {task && (
+        <TaskDetails
+          key={task.id}
+          task={task}
+          people={people}
+          me={me}
+          onChange={setTask}
+          onClose={() => setTask(null)}
+        />
+      )}
     </Modal>
   );
 }
@@ -833,9 +876,20 @@ function Finished({ person, period, winner, onClose }: { person: Person; period:
 
 /** A frosted card. Not faded or slid in: moving glass re-blurs what is behind it on
     every frame, and the animation stutters (as liquid-glass.css notes for the sidebar). */
-function Panel({ className = "", delay = 0, children }: { className?: string; delay?: number; children: ReactNode }) {
+function Panel({
+  className = "",
+  outer = "",
+  delay = 0,
+  children,
+}: {
+  className?: string;
+  /** Classes for the panel's own box in the page's layout (e.g. how much of a column it takes). */
+  outer?: string;
+  delay?: number;
+  children: ReactNode;
+}) {
   return (
-    <section style={after(delay)}>
+    <section style={after(delay)} className={outer}>
       <Card className={`agency-panel h-full ${className}`}>{children}</Card>
     </section>
   );
@@ -975,10 +1029,28 @@ function printReport(report: HTMLElement, name: string) {
   body { background: #fff; font-size: 12px; }
   .print-only { display: block !important; }
   .no-print { display: none !important; }
-  .recharts-wrapper, .recharts-surface { width: 100% !important; height: auto !important; }
+  /* The screen layout follows the window's height; on paper every box takes its content's. */
+  .agency-overview { height: auto !important; min-height: 0 !important; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) !important; }
+  .agency-overview section { min-height: 0 !important; flex: none !important; }
+  .agency-chart { height: auto !important; min-height: 0 !important; flex: none !important; }
+  .agency-pie { height: auto !important; min-height: 0 !important; flex: none !important; width: 100% !important; max-width: 230px !important; aspect-ratio: auto !important; margin: 0 auto; }
+  .recharts-responsive-container, .recharts-wrapper { width: 100% !important; height: auto !important; }
+  .recharts-surface { width: 100% !important; height: auto !important; display: block; }
+  .agency-pie .text-xl { font-size: 13px !important; }
+  .agency-pie .text-xs { font-size: 9px !important; }
+  /* The team table: every column on the page, narrower, instead of scrolling sideways. */
+  .overflow-x-auto { overflow: visible !important; }
+  table { min-width: 0 !important; width: 100% !important; font-size: 10px !important; }
+  table th, table td { padding-left: 4px !important; padding-right: 4px !important; }
+  table .w-24 { width: auto !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  section { break-inside: avoid; }
-</style></head><body>${report.outerHTML}</body></html>`;
+  /* The screen's entrance (panels rising in one after another) would be caught half-way:
+     on paper everything is there from the start. */
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* A panel of the overview is never split between pages; the team table may continue. */
+  .agency-overview section { break-inside: avoid; }
+  tr { break-inside: avoid; }
+</style></head><body>${printable(report).outerHTML}</body></html>`;
   frame.onload = async () => {
     const win = frame.contentWindow;
     if (!win) return;
@@ -988,4 +1060,18 @@ function printReport(report: HTMLElement, name: string) {
     setTimeout(() => frame.remove(), 1000);
   };
   document.body.appendChild(frame);
+}
+
+/** A copy of the report for paper: each chart keeps the shape it has on screen when it is
+    scaled to the page's width (an SVG without a viewBox would not scale, only crop). */
+function printable(report: HTMLElement): HTMLElement {
+  const copy = report.cloneNode(true) as HTMLElement;
+  const shown = report.querySelectorAll("svg.recharts-surface");
+  copy.querySelectorAll("svg.recharts-surface").forEach((svg, i) => {
+    const box = shown[i]?.getBoundingClientRect();
+    const width = Number(svg.getAttribute("width")) || box?.width || 0;
+    const height = Number(svg.getAttribute("height")) || box?.height || 0;
+    if (width && height) svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  });
+  return copy;
 }
