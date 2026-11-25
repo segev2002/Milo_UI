@@ -156,22 +156,22 @@ export function Tasks({ me }: { me: Identity }) {
             className={`${FIELD} py-1.5 pr-9 text-sm`}
           />
         </label>
-        {/* What the card colors mean. */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs text-muted">
+        {/* What the card colors mean: filled swatches, so each reads at a glance. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-xs font-semibold text-ink-900">
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-milo bg-milo/15" />
-            מילו פתח את המשימה מהוואטסאפ
+            <span className="h-4 w-4 rounded-md bg-milo" />
+            מילו פתח מהוואטסאפ
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-ink-900 bg-white" />
+            <span className="h-4 w-4 rounded-md border-2 border-ink-900 bg-white" />
             רגיל
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-important bg-important/15" />
+            <span className="h-4 w-4 rounded-md bg-important" />
             חשוב
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-urgent bg-urgent/15" />
+            <span className="h-4 w-4 rounded-md bg-urgent" />
             דחוף
           </span>
         </div>
@@ -417,13 +417,6 @@ function TaskCard({
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
-        {task.priority && task.priority !== "normal" && (
-          <span
-            className={`rounded-md px-2 py-0.5 text-[0.75rem] font-semibold text-white ${task.priority === "urgent" ? "bg-urgent" : "bg-important"}`}
-          >
-            {PRIORITY[task.priority].label}
-          </span>
-        )}
         {fileCount > 0 && (
           <Tag>
             <FileText className="ml-1 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
