@@ -41,6 +41,8 @@ export function Tasks({ me }: { me: Identity }) {
   const [people, setPeople] = useCached<Person[]>("tasks.people", []);
   const [error, setError] = useState<string | null>(null);
   const [assignee, setAssignee] = useCached("tasks.assignee", me.email);
+  //: "" for every priority, or only רגיל / חשוב / דחוף.
+  const [priority, setPriority] = useCached<TaskPriority | "">("tasks.priority", "");
   //: Search by the person's name or the task's title.
   const [query, setQuery] = useState("");
   //: `?task=<id>` — the link in the "שויכה אליך משימה" email — opens that task.
@@ -94,6 +96,7 @@ export function Tasks({ me }: { me: Identity }) {
   const matching = (tasks ?? []).filter(
     (t) =>
       (!assignee || t.assignee === assignee) &&
+      (!priority || (t.priority ?? "normal") === priority) &&
       (!q || taskTitle(t).toLowerCase().includes(q) || (t.name ?? "").toLowerCase().includes(q)),
   );
   const shown = matching.filter((t) => !isFuture(t));
@@ -130,6 +133,17 @@ export function Tasks({ me }: { me: Identity }) {
         </Button>
         <div className="w-48">
           <Select value={assignee} onChange={setAssignee} options={filterOptions} className="py-1.5 text-xs font-medium" />
+        </div>
+        <div className="w-36">
+          <Select<TaskPriority | "">
+            value={priority}
+            onChange={setPriority}
+            options={[
+              { value: "", label: "כל העדיפויות" },
+              ...(["urgent", "important", "normal"] as TaskPriority[]).map((p) => ({ value: p, label: PRIORITY[p].label })),
+            ]}
+            className="py-1.5 text-xs font-medium"
+          />
         </div>
         <label className="relative w-full max-w-xs">
           <LuSearch className="pointer-events-none absolute inset-y-0 right-3 z-10 my-auto h-4 w-4 text-muted" aria-hidden />
@@ -183,9 +197,10 @@ export function Tasks({ me }: { me: Identity }) {
         // On a phone the columns stack: new on top, then in progress, then done.
         <div className="grid gap-4 @md:grid-cols-2 @[52rem]:grid-cols-4">
           {BOARD.map((column) => {
-            const cards = shown.filter(
-              (t) => t.status === column.status && (column.claims === undefined || (t.team === "claims") === column.claims),
-            );
+            // Urgent on top, then important, then regular; within each, the board's own order.
+            const cards = shown
+              .filter((t) => t.status === column.status && (column.claims === undefined || (t.team === "claims") === column.claims))
+              .sort((a, b) => RANK[a.priority ?? "normal"] - RANK[b.priority ?? "normal"]);
             return (
               <section
                 key={column.label}
@@ -296,6 +311,9 @@ export const PRIORITY: Record<TaskPriority, { label: string; card: string | null
   important: { label: "חשוב", card: "border-important bg-important/15" },
   urgent: { label: "דחוף", card: "border-urgent bg-urgent/15" },
 };
+
+/** The board's order: urgent first. */
+const RANK: Record<TaskPriority, number> = { urgent: 0, important: 1, normal: 2 };
 
 /** Today as "YYYY-MM-DD", on this computer's clock. */
 function localDay(): string {
