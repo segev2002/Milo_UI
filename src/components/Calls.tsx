@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import { LuCheck, LuCopy, LuListTodo, LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
-import { ApiError, callAudio, createTask, deleteCall, getCall, listCalls, listPeople, retryCall, uploadCall } from "../lib/api";
+import { LuCheck, LuCopy, LuListTodo, LuPencil, LuRefreshCw, LuRotateCcw, LuSearch, LuSend, LuTrash2, LuUpload, LuX } from "react-icons/lu";
+import { ApiError, callAudio, createTask, deleteCall, editCall, getCall, listCalls, listPeople, retryCall, uploadCall } from "../lib/api";
 import { useCached } from "../lib/cache";
 import type { CallStatus, CallTranscription, Person } from "../types";
 import { AiRecorder, RecordingPlayer, type RecorderStatus } from "./AiRecorder";
@@ -354,7 +354,8 @@ function TaskSuggestions({ call, onClose }: { call: CallTranscription; onClose: 
 
   return (
     <section aria-label="משימות שמילו מציע" className="rounded-xl border border-milo bg-milo/15 shadow-sm">
-      <div className="space-y-4 p-5">
+      {/* One screen tall at most: the list scrolls inside, the approve button stays in view. */}
+      <div className="flex flex-col gap-4 p-5 lg:max-h-[calc(100dvh-9rem)]">
         <div className="flex items-start gap-3">
           <img src="/milo.png" alt="מילו" className="h-10 w-10 shrink-0 rounded-xl bg-champagne object-cover" />
           <div className="min-w-0 flex-1">
@@ -371,35 +372,35 @@ function TaskSuggestions({ call, onClose }: { call: CallTranscription; onClose: 
 
         {opened === null ? (
           <>
-            <ul className="space-y-2.5">
+            {/* A line per task: tick, its title (editable, full text on hover), who does it. */}
+            <ul className="min-h-0 space-y-2 overflow-y-auto">
               {items.map((it, i) => (
                 <li
                   key={i}
-                  className={`rounded-xl border p-3 transition-colors ${it.on ? "border-milo/40 bg-white" : "border-line bg-white/50 opacity-70"}`}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors ${it.on ? "border-milo/40 bg-white" : "border-line bg-white/50 opacity-70"}`}
                 >
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={it.on}
-                      onChange={(e) => set(i, { on: e.target.checked })}
-                      className="mt-2.5 h-4 w-4 shrink-0 accent-ink-900"
-                      aria-label="לפתוח את המשימה"
-                    />
-                    <textarea
-                      value={it.title}
-                      onChange={(e) => set(i, { title: e.target.value.slice(0, 200) })}
-                      disabled={!it.on}
-                      rows={2}
-                      className={`${FIELD} resize-none text-[0.9375rem] font-semibold leading-snug text-ink-900`}
-                    />
-                  </label>
-                  {it.on && people.length > 0 && (
-                    <div className="mr-7 mt-2 w-56">
+                  <input
+                    type="checkbox"
+                    checked={it.on}
+                    onChange={(e) => set(i, { on: e.target.checked })}
+                    className="h-4 w-4 shrink-0 accent-ink-900"
+                    aria-label="לפתוח את המשימה"
+                  />
+                  <input
+                    value={it.title}
+                    onChange={(e) => set(i, { title: e.target.value.slice(0, 200) })}
+                    disabled={!it.on}
+                    title={it.title}
+                    aria-label="כותרת המשימה"
+                    className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm font-semibold text-ink-900 outline-none focus:border-line focus:bg-white"
+                  />
+                  {people.length > 0 && (
+                    <div className="w-32 shrink-0">
                       <Select
                         value={it.assignee}
                         onChange={(v) => set(i, { assignee: v })}
                         options={[{ value: "", label: "בלי אחראי" }, ...people.map((p) => ({ value: p.email, label: p.display_name || p.email }))]}
-                        className="py-1.5 text-xs"
+                        className="py-1 text-xs"
                       />
                     </div>
                   )}
@@ -773,6 +774,9 @@ function CallDetails({
   const [call, setCall] = useState<CallTranscription | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [audio, setAudio] = useState<Blob | null>(null);
+  //: The pencil: the client's details open as fields.
+  const [editing, setEditing] = useState<{ client_name: string; phone: string; id_number: string } | null>(null);
+  const [saving, setSaving] = useState(false);
   const hasAudio = !!call?.audio_key;
   const panel = offer && call?.status === "done" && followUps(call.summary).length > 0;
 
@@ -803,6 +807,26 @@ function CallDetails({
       .catch(() => setError("ההקלטה לא זמינה."));
   }, [id, hasAudio]);
 
+  async function saveDetails() {
+    if (!editing || !editing.client_name.trim()) return;
+    setSaving(true);
+    try {
+      const fresh = await editCall(id, {
+        client_name: editing.client_name.trim(),
+        phone: editing.phone.trim(),
+        id_number: editing.id_number.trim(),
+      });
+      setCall(fresh);
+      onChange(fresh);
+      setEditing(null);
+      setError(null);
+    } catch (exc) {
+      setError(message(exc, "לא הצלחתי לשמור את הפרטים."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function retry() {
     try {
       const fresh = await retryCall(id);
@@ -819,8 +843,71 @@ function CallDetails({
       <div className={panel ? "grid items-start gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_26.25rem]" : "p-5 sm:p-8"}>
         <div className="min-w-0 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
+          {editing ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveDetails();
+              }}
+              className="grid min-w-0 flex-1 gap-3 sm:grid-cols-3"
+            >
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs font-semibold text-ink-900">שם הלקוח</span>
+                <input
+                  autoFocus
+                  required
+                  value={editing.client_name}
+                  onChange={(e) => setEditing({ ...editing, client_name: e.target.value })}
+                  className={FIELD}
+                />
+              </label>
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs font-semibold text-ink-900">טלפון</span>
+                <input
+                  dir="ltr"
+                  inputMode="tel"
+                  value={editing.phone}
+                  onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                  className={FIELD}
+                />
+              </label>
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs font-semibold text-ink-900">ת.ז</span>
+                <input
+                  dir="ltr"
+                  inputMode="numeric"
+                  value={editing.id_number}
+                  onChange={(e) => setEditing({ ...editing, id_number: e.target.value })}
+                  className={FIELD}
+                />
+              </label>
+              <div className="flex gap-2 sm:col-span-3">
+                <Button size="sm" type="submit" disabled={saving || !editing.client_name.trim()}>
+                  {saving ? <Typing /> : <LuCheck className="h-3.5 w-3.5" />}
+                  שמירה
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={saving}>
+                  ביטול
+                </Button>
+              </div>
+            </form>
+          ) : (
           <div>
-            <h2 className="font-display text-2xl font-semibold text-ink-900">{call?.client_name ?? "…"}</h2>
+            <h2 className="flex items-center gap-2 font-display text-2xl font-semibold text-ink-900">
+              {call?.client_name ?? "…"}
+              {call && (
+                <button
+                  onClick={() =>
+                    setEditing({ client_name: call.client_name, phone: call.phone ?? "", id_number: call.id_number ?? "" })
+                  }
+                  aria-label="עריכת פרטי הלקוח"
+                  title="עריכת פרטי הלקוח"
+                  className="rounded-lg p-1.5 text-muted transition-colors hover:bg-paper hover:text-ink-900"
+                >
+                  <LuPencil className="h-4 w-4" />
+                </button>
+              )}
+            </h2>
             {call && (
               // Each piece on its own, so a time and a length never run into each other.
               <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
@@ -840,6 +927,7 @@ function CallDetails({
               </p>
             )}
           </div>
+          )}
           <div className="flex items-center gap-2">
             {call && <Tag tone={STATUS[call.status].tone}>{STATUS[call.status].label}</Tag>}
             <button
