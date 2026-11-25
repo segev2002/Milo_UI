@@ -21,6 +21,7 @@ import type {
   Person,
   Task,
   TaskChatMessage,
+  TaskPriority,
   TurnRequest,
   TurnResponse,
   UsageMonth,
@@ -253,6 +254,14 @@ export async function ownerUsage(month: string): Promise<UsageMonth> {
   return request<UsageMonth>(`/agent/owner/usage?month=${encodeURIComponent(month)}`);
 }
 
+/** The day the connected key was made (Surense), without typing the keys again. */
+export async function setKeyCreatedOn(system: string, createdOn: string): Promise<{ expires_at: string }> {
+  return request<{ expires_at: string }>(`/agent/systems/${encodeURIComponent(system)}/created-on`, {
+    method: "PUT",
+    body: JSON.stringify({ created_on: createdOn }),
+  });
+}
+
 export async function ownerKeys(): Promise<ApiKeyExpiry[]> {
   return request<ApiKeyExpiry[]>("/agent/owner/keys");
 }
@@ -279,17 +288,26 @@ export async function createTask(task: {
   team?: "claims";
   /** A follow-up Milo suggested from a call, approved by the user: Milo opened it. */
   by_milo?: boolean;
+  /** "YYYY-MM-DD". A later day than today: a future task, emailed to its assignee that morning. */
+  due_date?: string;
+  priority?: TaskPriority;
 }): Promise<Task> {
   return request<Task>("/agent/tasks", { method: "POST", body: JSON.stringify(task) });
 }
 
 /** `assignee: ""` unassigns. */
+/** The task, its history and its files — for good. An admin's, or whoever opened it. */
+export async function deleteTask(id: string): Promise<void> {
+  await request(`/agent/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export async function updateTask(
   id: string,
   changes: Partial<Pick<Task, "title" | "description" | "status">> & {
     assignee?: string;
     /** "" clears the date. */
     due_date?: string;
+    priority?: TaskPriority;
   },
 ): Promise<Task> {
   return request<Task>(`/agent/tasks/${encodeURIComponent(id)}`, {
@@ -369,6 +387,17 @@ export async function uploadCall(
 }
 
 /** Start a failed call over, from its saved recording. */
+/** Who the call was with — the name, phone and ID, fixed after it was sent. */
+export async function editCall(
+  id: string,
+  details: { client_name: string; phone: string; id_number: string },
+): Promise<CallTranscription> {
+  return request<CallTranscription>(`${CALLS}/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(details),
+  });
+}
+
 export async function retryCall(id: string): Promise<CallTranscription> {
   return request<CallTranscription>(`${CALLS}/${encodeURIComponent(id)}/retry`, { method: "POST" });
 }

@@ -25,7 +25,7 @@ import type { View } from "./components/Sidebar";
 
 const TITLES: Record<View, { title: string }> = {
   chat: { title: "שאל את מילו" },
-  playbook: { title: "מה הוא יודע לעשות" },
+  playbook: { title: "פעולות נפוצות" },
   tasks: { title: "משימות" },
   calls: { title: "תמלול שיחות" },
   agency: { title: "ניהול הסוכנות" },

@@ -61,6 +61,8 @@ export type Phase = "idle" | "requesting" | "recording" | "paused" | "recorded" 
 type Recording = { url: string | null; duration: number; peaks: number[] };
 
 const PEAKS = 36;
+/** What the user types to throw a recording away (the same word as deleting a saved call). */
+const DELETE_WORD = "מחיקה";
 const SAMPLE_MS = 50;
 const BAR = 2.5;
 const BAR_GAP = 2;
@@ -145,6 +147,13 @@ export function AiRecorder({
   const [playing, setPlaying] = useState(false);
   const [posSec, setPosSec] = useState(0);
   const [announce, setAnnounce] = useState("");
+  //: The trash was pressed: what it would throw away, until "מחיקה" is typed to confirm.
+  const [confirming, setConfirming] = useState<"cancel" | "remove" | null>(null);
+  const [typed, setTyped] = useState("");
+  const askDelete = (what: "cancel" | "remove") => {
+    setTyped("");
+    setConfirming(what);
+  };
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -498,7 +507,7 @@ export function AiRecorder({
 
   return (
     // Left to right inside, like any player: the waveform and the timer read the same in a Hebrew page.
-    <div dir="ltr" className={cn("inline-flex", className)}>
+    <div dir="ltr" className={cn("inline-flex flex-col items-start gap-2", className)}>
       <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
@@ -555,7 +564,7 @@ export function AiRecorder({
 
           {group === "rec" && (
             <motion.div key="rec" layout="position" {...contentMotion} className="flex items-center gap-1.5">
-              <IconButton label="ביטול ההקלטה" onClick={() => finish(false)} dim={inner} reduced={reduced} className="hover:text-blocked">
+              <IconButton label="ביטול ההקלטה" onClick={() => askDelete("cancel")} dim={inner} reduced={reduced} className="hover:text-blocked">
                 <Trash2 style={{ width: icon * 0.85, height: icon * 0.85 }} aria-hidden />
               </IconButton>
               <div className="flex items-center gap-2 pl-0.5">
@@ -651,13 +660,47 @@ export function AiRecorder({
               <span className="min-w-9 text-right text-xs tabular-nums text-muted">
                 {fmt(playing || posSec > 0 ? posSec * 1000 : rec.duration)}
               </span>
-              <IconButton label="מחיקת ההקלטה" onClick={remove} dim={inner} reduced={reduced} className="hover:text-blocked">
+              <IconButton label="מחיקת ההקלטה" onClick={() => askDelete("remove")} dim={inner} reduced={reduced} className="hover:text-blocked">
                 <Trash2 style={{ width: icon * 0.85, height: icon * 0.85 }} aria-hidden />
               </IconButton>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
+      {/* The trash only asks: a recording is gone for good once deleted, so "מחיקה" is typed first. */}
+      {confirming && (group === "rec" || group === "play") && (
+        <form
+          dir="rtl"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (typed.trim() !== DELETE_WORD) return;
+            if (confirming === "cancel") finish(false);
+            else remove();
+            setConfirming(null);
+          }}
+          className="flex items-center gap-1.5 text-xs"
+        >
+          <input
+            autoFocus
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setConfirming(null)}
+            placeholder={`הקלידו "${DELETE_WORD}" למחיקה`}
+            aria-label={`הקלידו ${DELETE_WORD} כדי למחוק את ההקלטה`}
+            className="w-44 rounded-md border border-[#f3d3d0] bg-white px-2 py-1 text-xs text-ink-900 outline-none placeholder:text-blocked/70 focus:border-blocked"
+          />
+          <button
+            type="submit"
+            disabled={typed.trim() !== DELETE_WORD}
+            className="rounded-md bg-blocked px-2.5 py-1 font-semibold text-white disabled:opacity-40"
+          >
+            מחיקה
+          </button>
+          <button type="button" onClick={() => setConfirming(null)} className="rounded-md border border-line bg-white px-2.5 py-1 text-ink-900">
+            ביטול
+          </button>
+        </form>
+      )}
     </div>
   );
 }

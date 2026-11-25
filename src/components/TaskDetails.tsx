@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { addTaskEvent, ApiError, deleteTaskFile, renameTaskFile, taskConversation, taskMediaPdfUrl, taskMediaUrl, updateTask, uploadTaskFile } from "../lib/api";
-import type { Identity, Person, Task, TaskChatMessage, TaskStatus } from "../types";
+import type { Identity, Person, Task, TaskChatMessage, TaskPriority, TaskStatus } from "../types";
 import { LuCalendarDays, LuCheck, LuChevronDown, LuDownload, LuExternalLink, LuFileText, LuMail, LuMessageCircle, LuPaperclip, LuPlus, LuSave, LuTrash2, LuX } from "react-icons/lu";
 import { FileText, Pencil } from "lucide-react";
-import { byMilo, COLUMNS, Modal, personName, sourceLabel, sourceTone, taskTitle } from "./Tasks";
+import { byMilo, COLUMNS, Modal, personName, PRIORITY, sourceLabel, sourceTone, taskTitle } from "./Tasks";
 import { Button, confirmDialog, DateField, FIELD, openGoogle, Select, Tag, when } from "./ui";
 
 /**
@@ -31,6 +31,8 @@ export function TaskDetails({
   const [description, setDescription] = useState(task.description ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  //: The history's latest HISTORY_LINES, or all of it.
+  const [allHistory, setAllHistory] = useState(false);
   //: Closed until asked for, so opening a task does not load the whole chat.
   const [showChat, setShowChat] = useState(false);
   //: The moment the last save went through — "נשמר" shows for a few seconds after.
@@ -147,8 +149,10 @@ export function TaskDetails({
 
       {error && <p className="mx-4 mt-4 text-sm text-blocked sm:mx-6">{error}</p>}
 
-      <div className="grid flex-1 content-start gap-6 p-4 sm:p-6 md:grid-cols-[1fr_15rem]">
-        <div className="min-w-0 space-y-6">
+      {/* Fits one screen: the side panel holds its fields two by two, the history shows its
+          latest lines (all of them on request). */}
+      <div className="grid flex-1 content-start gap-5 p-4 sm:px-6 sm:py-5 md:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-5">
           {task.link_url && (
             <a
               href={task.link_url}
@@ -293,20 +297,31 @@ export function TaskDetails({
 
           <Section title="היסטוריה">
             <ul className="space-y-1.5">
-              {[...task.events].reverse().map((event, i) => (
+              {[...task.events].reverse().slice(0, allHistory ? undefined : HISTORY_LINES).map((event, i) => (
                 <li key={i} className="text-xs text-muted">
                   <span className="font-medium text-ink-900">{personName(people, event.by)}</span>{" "}
                   {describe(event, people)} · {when(event.at)}
                 </li>
               ))}
-              <li className="text-xs text-muted">
-                {byMilo(task) ? "מילו פתח את המשימה" : "המשימה נוצרה"} · {when(task.created_at)}
-              </li>
+              {(allHistory || task.events.length <= HISTORY_LINES) && (
+                <li className="text-xs text-muted">
+                  {byMilo(task) ? "מילו פתח את המשימה" : "המשימה נוצרה"} · {when(task.created_at)}
+                </li>
+              )}
             </ul>
+            {task.events.length > HISTORY_LINES && (
+              <button
+                type="button"
+                onClick={() => setAllHistory(!allHistory)}
+                className="mt-1.5 text-xs font-semibold text-muted hover:text-ink-900"
+              >
+                {allHistory ? "פחות" : `כל ההיסטוריה (${task.events.length + 1})`}
+              </button>
+            )}
           </Section>
         </div>
 
-        <aside className="space-y-4 md:sticky md:top-24 md:self-start">
+        <aside className="grid grid-cols-2 content-start gap-3 md:sticky md:top-24 md:self-start">
           <Field label="סטטוס">
             <Select<TaskStatus>
               value={task.status}
@@ -343,11 +358,19 @@ export function TaskDetails({
               </button>
             )}
           </Field>
+          <Field label="עדיפות">
+            <Select<TaskPriority>
+              value={task.priority ?? "normal"}
+              disabled={busy}
+              onChange={(priority) => void save(() => updateTask(task.id, { priority }), "שינוי העדיפות נכשל.")}
+              options={(Object.keys(PRIORITY) as TaskPriority[]).map((p) => ({ value: p, label: PRIORITY[p].label }))}
+            />
+          </Field>
           <Field label="מקור">
             <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
           </Field>
           {(task.name || task.phone) && (
-            <Field label="לקוח">
+            <Field label="לקוח" wide>
               <p className="text-sm text-ink-900">{task.name}</p>
               {task.phone && (
                 <>
@@ -356,7 +379,8 @@ export function TaskDetails({
                   </p>
                   <Button
                     variant="ghost"
-                    className="mt-2 w-full"
+                    size="sm"
+                    className="mt-1.5 w-full"
                     onClick={() => window.open(`https://wa.me/${task.phone!.replace(/\D/g, "")}`, "_blank", "noopener")}
                   >
                     <LuMessageCircle className="h-4 w-4" />
@@ -366,12 +390,12 @@ export function TaskDetails({
               )}
             </Field>
           )}
-          <div className="flex flex-col gap-2 border-t border-line pt-4">
-            <Button variant="ghost" onClick={() => openInGoogle("email")}>
+          <div className="col-span-2 grid grid-cols-2 gap-2 border-t border-line pt-3">
+            <Button variant="ghost" size="sm" onClick={() => openInGoogle("email")}>
               <LuMail className="h-4 w-4" />
               שליחת מייל
             </Button>
-            <Button variant="ghost" onClick={() => openInGoogle("meeting")}>
+            <Button variant="ghost" size="sm" onClick={() => openInGoogle("meeting")}>
               <LuCalendarDays className="h-4 w-4" />
               קביעת פגישה
             </Button>
@@ -409,8 +433,13 @@ export function TaskDetails({
 }
 
 /** A file to show: its name, its key on the task, where to read it, and where to read it as a PDF. */
-type PreviewFile = { name: string; key: string; url: string; pdf: string };
+/** A file to look at: on the server (`key`, `pdf`), or one picked but not uploaded yet
+    (`url` a blob: URL, `pdf` empty — there is nothing on the server to convert). */
+export type PreviewFile = { name: string; key: string; url: string; pdf: string };
 const previewFile = (name: string, key: string): PreviewFile => ({ name, key, url: taskMediaUrl(key), pdf: taskMediaPdfUrl(key) });
+
+/** How many lines of a task's history show before "כל ההיסטוריה". */
+const HISTORY_LINES = 4;
 
 /** Extensions the server turns into a PDF (see the API's files_pdf). */
 const PDF_ABLE = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
@@ -419,7 +448,7 @@ const PDF_ABLE = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
  * How a file leaves the console when dragged: a PDF or a picture as a PDF, anything
  * else as it is. WhatsApp files have no extension, and are pictures or PDFs.
  */
-function dragAs(file: PreviewFile): { name: string; url: string; type: string; label: string } {
+export function dragAs(file: PreviewFile): { name: string; url: string; type: string; label: string } {
   const extension = file.name.match(/\.([a-z0-9]{2,5})$/i)?.[1].toLowerCase();
   if (!extension || PDF_ABLE.includes(extension))
     return { name: `${file.name.replace(/\.[a-z0-9]{2,5}$/i, "")}.pdf`, url: file.pdf, type: "application/pdf", label: "PDF" };
@@ -455,7 +484,7 @@ const EXTENSIONS: Record<string, string> = {
  * just the download. Read once, behind the console's sign-in, and kept in memory
  * while it is open, so downloading does not fetch it again.
  */
-function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
+export function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
   const [blob, setBlob] = useState<{ url: string; type: string } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -511,7 +540,7 @@ function FilePreview({ file, onClose }: { file: PreviewFile; onClose: () => void
               הורדה
             </a>
           )}
-          {convertible && (
+          {convertible && file.pdf && (
             <a
               href={file.pdf}
               download={pdfName}
@@ -562,6 +591,8 @@ function describe(event: Task["events"][number], people: Person[]): string {
       return `מחק/ה את ${event.text}`;
     case "due":
       return event.text ? `קבע/ה תאריך יעד: ${dueLabel(event.text)}` : "הסיר/ה את תאריך היעד";
+    case "priority":
+      return `שינה/תה עדיפות ל"${PRIORITY[(event.text ?? "normal") as TaskPriority]?.label ?? event.text}"`;
     case "email":
       return event.text ? `פתח/ה מייל ב-Gmail: ${event.text}` : "פתח/ה מייל ב-Gmail";
     case "meeting":
@@ -585,9 +616,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
   return (
-    <div>
+    <div className={`min-w-0 ${wide ? "col-span-2" : ""}`}>
       <p className="mb-1 text-xs font-semibold text-muted">{label}</p>
       {children}
     </div>

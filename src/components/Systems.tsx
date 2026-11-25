@@ -6,6 +6,7 @@ import {
   ApiError,
   chooseSystems,
   connectSystem,
+  setKeyCreatedOn,
   getSystems,
   googleConnectUrl,
   googleTest,
@@ -229,10 +230,32 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** How long a Surense key lives (the API's SURENSE_DAYS). */
+const KEY_DAYS = 180;
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 /** The system's keys: tried by the server, saved only if they work. */
 function KeysWindow({ system, onClose, onSaved }: { system: SystemStatus; onClose: () => void; onSaved: () => void }) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [createdOn, setCreatedOn] = useState("");
+  // The key's day as saved (its expiry less 180 days), so it can be changed on its own.
+  const [createdOn, setCreatedOn] = useState(() =>
+    system.expires_at ? isoDay(new Date(new Date(system.expires_at).getTime() - KEY_DAYS * 86_400_000)) : "",
+  );
+  const [dateSaved, setDateSaved] = useState(false);
+
+  async function saveDate() {
+    setBusy(true);
+    setError(null);
+    try {
+      await setKeyCreatedOn(system.id, createdOn);
+      setDateSaved(true);
+      onSaved();
+    } catch (exc) {
+      setError(exc instanceof ApiError ? exc.message : "שמירת התאריך נכשלה.");
+    } finally {
+      setBusy(false);
+    }
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -288,7 +311,22 @@ function KeysWindow({ system, onClose, onSaved }: { system: SystemStatus; onClos
       {system.id === "surense" && (
         <div>
           <p className="mb-1.5 block text-sm font-semibold text-ink-900">מתי המפתח נוצר ב-Surense (בתוקף 180 יום)</p>
-          <DateField value={createdOn} onChange={setCreatedOn} />
+          <DateField
+            value={createdOn}
+            onChange={(day) => {
+              setCreatedOn(day);
+              setDateSaved(false);
+            }}
+          />
+          {/* Connected already: the day alone can be saved, the keys stay as they are. */}
+          {system.connected && (
+            <div className="mt-2 flex items-center gap-3">
+              <Button variant="ghost" disabled={busy || !createdOn} onClick={() => void saveDate()}>
+                שמירת התאריך בלבד
+              </Button>
+              {dateSaved && <span className="text-sm text-muted">התאריך נשמר ✓</span>}
+            </div>
+          )}
         </div>
       )}
       <p className="text-sm text-muted">המפתחות נשמרים מוצפנים בחשבון של מילו, ולא מוצגים שוב.</p>
