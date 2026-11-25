@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ApiError, createTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
+import { ApiError, createTask, deleteTask, listPeople, listTasks, updateTask, uploadTaskFile } from "../lib/api";
 import { useCached } from "../lib/cache";
-import type { Identity, Person, Task, TaskStatus } from "../types";
-import { LuCalendarDays, LuPaperclip, LuPlus, LuRefreshCw, LuSearch, LuX } from "react-icons/lu";
+import type { Identity, Person, Task, TaskPriority, TaskStatus } from "../types";
+import { LuCalendarClock, LuCalendarDays, LuPlus, LuRefreshCw, LuSearch, LuTrash2, LuX } from "react-icons/lu";
 import { FileText } from "lucide-react";
-import { dueLabel, TaskDetails } from "./TaskDetails";
-import { Button, FIELD, Select, Tag, when } from "./ui";
+import { dragAs, dueLabel, FilePreview, TaskDetails, type PreviewFile } from "./TaskDetails";
+import { Button, DateField, FIELD, Select, Tag, when } from "./ui";
 
 /**
  * The task board: three columns, one small card per task. Milo files tasks from
@@ -46,6 +46,8 @@ export function Tasks({ me }: { me: Identity }) {
   //: `?task=<id>` — the link in the "שויכה אליך משימה" email — opens that task.
   const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get("task"));
   const [creating, setCreating] = useState<"task" | "claim" | null>(null);
+  //: "משימות עתידיות": tasks set for a later day, off the board until it comes.
+  const [showFuture, setShowFuture] = useState(false);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -67,6 +69,9 @@ export function Tasks({ me }: { me: Identity }) {
     return () => clearInterval(timer);
   }, [refresh, me.email, me.display_name]);
 
+  /** A task was deleted — from its card or from inside it. */
+  const removed = (id: string) => setTasks((prev) => prev?.filter((t) => t.id !== id) ?? null);
+
   /** A task changed — here or in its card. */
   const replace = (task: Task) =>
     setTasks((prev) => prev?.map((t) => (t.id === task.id ? task : t)) ?? null);
@@ -86,11 +91,13 @@ export function Tasks({ me }: { me: Identity }) {
   }
 
   const q = query.trim().toLowerCase();
-  const shown = (tasks ?? []).filter(
+  const matching = (tasks ?? []).filter(
     (t) =>
       (!assignee || t.assignee === assignee) &&
       (!q || taskTitle(t).toLowerCase().includes(q) || (t.name ?? "").toLowerCase().includes(q)),
   );
+  const shown = matching.filter((t) => !isFuture(t));
+  const future = matching.filter(isFuture).sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
   //: Every user, the signed-in one first; an assignee who is no longer a user still gets a line.
   const filterOptions = [
     { value: "", label: "כל המשימות" },
@@ -110,9 +117,16 @@ export function Tasks({ me }: { me: Identity }) {
           <LuPlus className="h-4 w-4" />
           משימה חדשה
         </Button>
-        <Button variant="claim" onClick={() => setCreating("claim")}>
+        <Button variant="task" onClick={() => setCreating("claim")}>
           <LuPlus className="h-4 w-4" />
           תביעה חדשה
+        </Button>
+        <Button variant="ghost" onClick={() => setShowFuture(true)}>
+          <LuCalendarClock className="h-4 w-4" />
+          משימות עתידיות
+          {future.length > 0 && (
+            <span className="rounded-full bg-ink-900 px-1.5 text-[0.7rem] font-semibold text-champagne">{future.length}</span>
+          )}
         </Button>
         <div className="w-48">
           <Select value={assignee} onChange={setAssignee} options={filterOptions} className="py-1.5 text-xs font-medium" />
@@ -135,12 +149,16 @@ export function Tasks({ me }: { me: Identity }) {
             מילו פתח את המשימה מהוואטסאפ
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-claim bg-claim/15" />
-            תביעה
+            <span className="h-3 w-3 rounded-sm border border-ink-900 bg-white" />
+            רגיל
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-sm border border-ink-900 bg-white" />
-            משימה שנפתחה בקונסולה
+            <span className="h-3 w-3 rounded-sm border border-important bg-important/15" />
+            חשוב
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-urgent bg-urgent/15" />
+            דחוף
           </span>
         </div>
         <button
@@ -193,7 +211,7 @@ export function Tasks({ me }: { me: Identity }) {
                 <ul className="space-y-2">
                   {cards.map((task) => (
                     <li key={task.id}>
-                      <TaskCard task={task} people={people} onOpen={() => setOpenId(task.id)} />
+                      <TaskCard task={task} people={people} me={me} onOpen={() => setOpenId(task.id)} onDeleted={() => removed(task.id)} />
                     </li>
                   ))}
                 </ul>
@@ -201,6 +219,42 @@ export function Tasks({ me }: { me: Identity }) {
             );
           })}
         </div>
+      )}
+
+      {showFuture && (
+        <Modal onClose={() => setShowFuture(false)} size="lg">
+          <div className="space-y-4 p-5 sm:p-8">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-2xl font-semibold text-ink-900">משימות עתידיות</h2>
+                <p className="mt-1 text-sm text-muted">כל משימה עולה ללוח ביום שלה, והאחראי/ת מקבל/ת עליה מייל באותו בוקר.</p>
+              </div>
+              <button onClick={() => setShowFuture(false)} aria-label="סגירה" className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-ink-900">
+                <LuX className="h-5 w-5" />
+              </button>
+            </div>
+            {future.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted">אין משימות עתידיות.</p>
+            ) : (
+              <ul className="space-y-2">
+                {future.map((task) => (
+                  <li key={task.id}>
+                    <TaskCard
+                      task={task}
+                      people={people}
+                      me={me}
+                      onDeleted={() => removed(task.id)}
+                      onOpen={() => {
+                        setShowFuture(false);
+                        setOpenId(task.id);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Modal>
       )}
 
       {open && (
@@ -231,6 +285,18 @@ export function Tasks({ me }: { me: Identity }) {
 }
 
 /** What the card leads with: its title, else Milo's summary, else the last message. */
+/** A task for a later day than today, not done: it waits in "משימות עתידיות". */
+function isFuture(task: Task): boolean {
+  return task.status !== "done" && !!task.due_date && task.due_date > localDay();
+}
+
+/** What each priority is called, and how its card and tag look. רגיל: the source's own look. */
+export const PRIORITY: Record<TaskPriority, { label: string; card: string | null }> = {
+  normal: { label: "רגיל", card: null },
+  important: { label: "חשוב", card: "border-important bg-important/15" },
+  urgent: { label: "דחוף", card: "border-urgent bg-urgent/15" },
+};
+
 /** Today as "YYYY-MM-DD", on this computer's clock. */
 function localDay(): string {
   const d = new Date();
@@ -254,7 +320,7 @@ export function sourceLabel(task: Task): string {
   return "ידני";
 }
 
-/** Claim color for claims, ultra violet for what Milo opened. */
+/** Ultra violet for what Milo opened; a claim's tag keeps its color (the card is by priority). */
 export function sourceTone(task: Task): "claim" | "milo" | "ink" {
   if (task.team === "claims") return "claim";
   return byMilo(task) ? "milo" : "ink";
@@ -266,18 +332,59 @@ export function personName(people: Person[], email: string | null): string {
   return people.find((p) => p.email === email)?.display_name || email.split("@")[0];
 }
 
-function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOpen: () => void }) {
+/** What the user types to delete a task (the same word as for a call or a recording). */
+const DELETE_WORD = "מחיקה";
+
+function TaskCard({
+  task,
+  people,
+  me,
+  onOpen,
+  onDeleted,
+}: {
+  task: Task;
+  people: Person[];
+  me: Identity;
+  onOpen: () => void;
+  onDeleted: () => void;
+}) {
   const fileCount = task.files.length + task.messages.filter((m) => m.media_url).length;
   const assignee = personName(people, task.assignee);
+  //: The card's trash: an admin's, or whoever opened the task. "מחיקה" is typed to confirm.
+  const mayDelete = me.is_admin || task.created_by === me.email;
+  const [typed, setTyped] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  async function remove() {
+    setDeleting(true);
+    try {
+      await deleteTask(task.id);
+      onDeleted();
+    } catch (exc) {
+      setFailed(exc instanceof ApiError ? exc.message : "המחיקה נכשלה.");
+      setDeleting(false);
+    }
+  }
   return (
+    <div className="group relative">
+    {mayDelete && typed === null && (
+      <button
+        type="button"
+        onClick={() => setTyped("")}
+        aria-label={`מחיקת המשימה ${taskTitle(task)}`}
+        title="מחיקה"
+        className="absolute left-1.5 top-1.5 z-10 rounded-lg p-1.5 text-muted opacity-60 transition hover:bg-white hover:text-blocked hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <LuTrash2 className="h-3.5 w-3.5" />
+      </button>
+    )}
     <button
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
       onClick={onOpen}
-      className={`w-full cursor-grab rounded-xl border p-3 text-right shadow-sm ${
-        { claim: "border-claim bg-claim/15", milo: "border-milo bg-milo/15", ink: "border-ink-900 bg-white" }[
-          sourceTone(task)
-        ]
+      className={`w-full cursor-grab rounded-xl border p-3 text-right shadow-sm ${mayDelete ? "pl-8" : ""} ${
+        // חשוב / דחוף color the card; רגיל: white, or Milo's violet for what he opened.
+        PRIORITY[task.priority ?? "normal"].card ?? (byMilo(task) ? "border-milo bg-milo/15" : "border-ink-900 bg-white")
       } transition-colors active:cursor-grabbing`}
     >
       <div className="flex items-start gap-2">
@@ -292,6 +399,13 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Tag tone={sourceTone(task)}>{sourceLabel(task)}</Tag>
+        {task.priority && task.priority !== "normal" && (
+          <span
+            className={`rounded-md px-2 py-0.5 text-[0.75rem] font-semibold text-white ${task.priority === "urgent" ? "bg-urgent" : "bg-important"}`}
+          >
+            {PRIORITY[task.priority].label}
+          </span>
+        )}
         {fileCount > 0 && (
           <Tag>
             <FileText className="ml-1 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
@@ -323,6 +437,33 @@ function TaskCard({ task, people, onOpen }: { task: Task; people: Person[]; onOp
         )}
       </div>
     </button>
+    {typed !== null && (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (typed.trim() === DELETE_WORD && !deleting) void remove();
+        }}
+        className="mt-1 flex items-center gap-1.5 rounded-xl border border-[#f3d3d0] bg-[#fbeceb] p-2 text-xs"
+      >
+        <input
+          autoFocus
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && setTyped(null)}
+          placeholder={`הקלידו "${DELETE_WORD}" למחיקה`}
+          aria-label={`הקלידו ${DELETE_WORD} כדי למחוק את המשימה`}
+          className="min-w-0 flex-1 rounded-md border border-[#f3d3d0] bg-white px-2 py-1 text-xs text-ink-900 outline-none placeholder:text-blocked/70 focus:border-blocked"
+        />
+        <button type="submit" disabled={deleting || typed.trim() !== DELETE_WORD} className="rounded-md bg-blocked px-2.5 py-1 font-semibold text-white disabled:opacity-40">
+          מחיקה
+        </button>
+        <button type="button" onClick={() => setTyped(null)} className="rounded-md border border-line bg-white px-2.5 py-1 text-ink-900">
+          ביטול
+        </button>
+      </form>
+    )}
+    {failed && <p className="mt-1 text-xs text-blocked">{failed}</p>}
+    </div>
   );
 }
 
@@ -342,8 +483,15 @@ function NewTask({
   onClose: () => void;
 }) {
   // Whoever opens the task owns it unless they pick someone else.
-  const [form, setForm] = useState({ title: "", description: "", name: "", phone: "", assignee: me.email });
+  const [form, setForm] = useState({ title: "", description: "", name: "", phone: "", assignee: me.email, due_date: "" });
+  const [priority, setPriority] = useState<TaskPriority>("normal");
   const [files, setFiles] = useState<File[]>([]);
+  //: A picked file, opened to look at before the task is created (the same viewer as a task's files).
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
+  const closePreview = () => {
+    if (preview) URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
@@ -355,7 +503,11 @@ function NewTask({
     try {
       // Empty fields are left out, not sent as "".
       const fields = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
-      let task = await createTask({ ...(fields as typeof form), ...(claim && { team: "claims" as const }) });
+      let task = await createTask({
+        ...(fields as typeof form),
+        priority,
+        ...(claim && { team: "claims" as const }),
+      });
       // The task exists now, so a file that fails does not undo it: it is named instead.
       const failed: string[] = [];
       for (const file of files) {
@@ -374,15 +526,17 @@ function NewTask({
 
   return (
     <Modal onClose={onClose} size="lg">
-      <form onSubmit={(e) => void submit(e)} className="space-y-5 p-5 sm:p-8">
+      {/* Compact enough to fit one screen: the description is short (it grows as it is typed into
+          in the task itself), and date, priority and assignee share a row. */}
+      <form onSubmit={(e) => void submit(e)} className="space-y-4 p-5 sm:p-7">
         <h2 className="font-display text-2xl font-semibold text-ink-900">{claim ? "תביעה חדשה" : "משימה חדשה"}</h2>
         <Labelled label="כותרת">
           <input required autoFocus value={form.title} onChange={set("title")} className={`${FIELD} text-base`} />
         </Labelled>
         <Labelled label="תיאור">
-          <textarea rows={7} value={form.description} onChange={set("description")} className={`${FIELD} text-base`} />
+          <textarea rows={3} value={form.description} onChange={set("description")} className={`${FIELD} resize-y text-base`} />
         </Labelled>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Labelled label="שם הלקוח" hint="לא חובה">
             <input value={form.name} onChange={set("name")} className={`${FIELD} text-base`} />
           </Labelled>
@@ -390,42 +544,93 @@ function NewTask({
             <input dir="ltr" value={form.phone} onChange={set("phone")} className={`${FIELD} text-right text-base`} />
           </Labelled>
         </div>
-        <Labelled label="אחראי/ת">
-          <Select
-            value={form.assignee}
-            onChange={(assignee) => setForm({ ...form, assignee })}
-            options={[
-              { value: "", label: "ללא שיוך" },
-              // The default is the signed-in user, so they are listed even before the people load.
-              ...(people.some((p) => p.email === me.email) ? [] : [{ value: me.email, label: me.display_name || me.email }]),
-              ...people.map((p) => ({ value: p.email, label: p.display_name || p.email })),
-            ]}
-          />
-        </Labelled>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-ink-900">
+              תאריך<span className="mr-2 text-xs font-normal text-muted">לא חובה</span>
+            </span>
+            <DateField
+              value={form.due_date}
+              placeholder="ללא תאריך"
+              onChange={(due_date) => setForm({ ...form, due_date })}
+            />
+          </div>
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-ink-900">עדיפות</span>
+            <div role="radiogroup" aria-label="עדיפות" className="flex gap-1.5">
+              {(Object.keys(PRIORITY) as TaskPriority[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={priority === p}
+                  onClick={() => setPriority(p)}
+                  className={`flex-1 rounded-lg border px-2 py-2 text-sm font-semibold transition-colors ${
+                    priority === p
+                      ? p === "urgent"
+                        ? "border-urgent bg-urgent text-white"
+                        : p === "important"
+                          ? "border-important bg-important text-white"
+                          : "border-ink-900 bg-ink-900 text-champagne"
+                      : "border-line bg-white text-ink-700 hover:bg-paper"
+                  }`}
+                >
+                  {PRIORITY[p].label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Labelled label="אחראי/ת">
+            <Select
+              value={form.assignee}
+              onChange={(assignee) => setForm({ ...form, assignee })}
+              options={[
+                { value: "", label: "ללא שיוך" },
+                // The default is the signed-in user, so they are listed even before the people load.
+                ...(people.some((p) => p.email === me.email) ? [] : [{ value: me.email, label: me.display_name || me.email }]),
+                ...people.map((p) => ({ value: p.email, label: p.display_name || p.email })),
+              ]}
+            />
+          </Labelled>
+        </div>
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">
             קבצים<span className="mr-2 text-xs font-normal text-muted">עד 20MB לקובץ</span>
           </span>
           <div className="flex flex-wrap gap-2">
             {files.map((file, i) => (
-              <span
+              // The same tile as a task's own files: click to look at it, the trash to drop it.
+              <div
                 key={i}
-                className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs text-ink-900"
+                className="inline-flex max-w-full items-center rounded-xl border border-line bg-white transition hover:border-ink-300 hover:shadow-sm"
               >
-                <LuPaperclip className="h-3.5 w-3.5 shrink-0" />
-                {file.name}
+                <button
+                  type="button"
+                  onClick={() => setPreview({ name: file.name, key: "", url: URL.createObjectURL(file), pdf: "" })}
+                  title="לחיצה לתצוגה"
+                  className="inline-flex min-w-0 items-center gap-2.5 py-1.5 pl-1 pr-1.5 text-right"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blocked/10 text-blocked">
+                    <FileText className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block max-w-[14rem] truncate text-sm font-medium text-ink-900">{file.name}</span>
+                    <span className="block text-[0.75rem] text-muted">{dragAs({ name: file.name, key: "", url: "", pdf: "" }).label}</span>
+                  </span>
+                </button>
                 <button
                   type="button"
                   aria-label={`הסרת ${file.name}`}
+                  title="הסרה"
                   onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                  className="text-muted hover:text-blocked"
+                  className="ml-1.5 rounded-md p-1.5 text-muted hover:bg-blocked/10 hover:text-blocked"
                 >
-                  <LuX className="h-3.5 w-3.5" />
+                  <LuTrash2 className="h-3.5 w-3.5" />
                 </button>
-              </span>
+              </div>
             ))}
-            <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-ink-300 px-2.5 py-1.5 text-xs text-ink-700 hover:bg-ink-50">
-              <LuPlus className="h-3.5 w-3.5" />
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-ink-300 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50">
+              <LuPlus className="h-4 w-4" />
               צירוף קבצים
               <input
                 type="file"
@@ -449,6 +654,7 @@ function NewTask({
           </Button>
         </div>
       </form>
+      {preview && <FilePreview file={preview} onClose={closePreview} />}
     </Modal>
   );
 }
@@ -467,6 +673,11 @@ function Labelled({ label, hint, children }: { label: string; hint?: string; chi
 
 /** A centred panel over a dimmed page. Escape or a click outside closes it.
     Rendered on <body>, so scrolling inside it never moves the page behind. */
+/** The popups open now, the top one last: one opened over another (a task over a list)
+    shares the page's scroll freeze, and Escape closes only the top one. */
+const openModals: object[] = [];
+let scrollBefore: { root: HTMLElement; overflow: string }[] = [];
+
 export function Modal({
   children,
   onClose,
@@ -476,29 +687,40 @@ export function Modal({
   onClose: () => void;
   size?: "md" | "lg" | "xl";
 }) {
+  const [self] = useState(() => ({}));
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && openModals[openModals.length - 1] === self && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, self]);
 
   // While open, the page behind is frozen: its scroll area stops scrolling, and a
-  // wheel or swipe on the dimmed backdrop goes nowhere.
+  // wheel or swipe on the dimmed backdrop goes nowhere. The first popup freezes it,
+  // the last one to close lets it go, whatever order they close in.
   const backdrop = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const roots = [...document.querySelectorAll<HTMLElement>("[data-scroll-root]")];
-    const before = roots.map((r) => r.style.overflow);
-    roots.forEach((r) => (r.style.overflow = "hidden"));
+    if (openModals.length === 0) {
+      scrollBefore = [...document.querySelectorAll<HTMLElement>("[data-scroll-root]")].map((root) => ({
+        root,
+        overflow: root.style.overflow,
+      }));
+      scrollBefore.forEach(({ root }) => (root.style.overflow = "hidden"));
+    }
+    openModals.push(self);
     const el = backdrop.current;
     const block = (e: Event) => e.target === el && e.preventDefault();
     el?.addEventListener("wheel", block, { passive: false });
     el?.addEventListener("touchmove", block, { passive: false });
     return () => {
-      roots.forEach((r, i) => (r.style.overflow = before[i]));
+      openModals.splice(openModals.indexOf(self), 1);
+      if (openModals.length === 0) {
+        scrollBefore.forEach(({ root, overflow }) => (root.style.overflow = overflow));
+        scrollBefore = [];
+      }
       el?.removeEventListener("wheel", block);
       el?.removeEventListener("touchmove", block);
     };
-  }, []);
+  }, [self]);
 
   return createPortal(
     <div

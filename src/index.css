@@ -32,6 +32,9 @@
   /* Task cards: what Milo opened, and claims. */
   --color-milo: #6a00f4;
   --color-claim: #e04e5b;
+  /* A task's priority: חשוב (orange), דחוף (red). רגיל has no color. */
+  --color-important: #e2761b;
+  --color-urgent: #c62828;
 
   /* Sharper corners across the console. */
   --radius-md: 0.25rem;

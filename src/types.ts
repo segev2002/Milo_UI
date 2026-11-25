@@ -149,6 +149,8 @@ export type TaskKind = "clients" | "new_clients";
 export type TaskStatus = "new" | "in_progress" | "done";
 
 /** One row of milo.tasks — GET /agent/tasks */
+export type TaskPriority = "normal" | "important" | "urgent";
+
 export interface Task {
   id: string;
   title: string | null;
@@ -169,9 +171,11 @@ export interface Task {
   /** Files console users attached; `key` opens via /agent/tasks/media. */
   files: { key: string; name: string; by: string; at: string }[];
   /** The card's history, oldest first. */
-  events: { type: "created" | "status" | "assignee" | "file" | "file_rename" | "file_delete" | "due" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
-  /** The day the task is scheduled for ("YYYY-MM-DD"). */
+  events: { type: "created" | "status" | "assignee" | "file" | "file_rename" | "file_delete" | "due" | "priority" | "email" | "meeting" | "polywizz"; text: string | null; by: string; at: string }[];
+  /** The day the task is scheduled for ("YYYY-MM-DD"). A later day than today: a future task. */
   due_date?: string | null;
+  /** רגיל / חשוב / דחוף. */
+  priority?: TaskPriority;
   assignee: string | null;
   created_by: string | null;
   created_at: string;
